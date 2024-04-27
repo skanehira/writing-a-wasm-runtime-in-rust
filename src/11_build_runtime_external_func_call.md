@@ -1,9 +1,9 @@
 ---
-Runtimeの実装 ~ 外部関数実行まで ~
+Implementation of Runtime ~ up to External Function Execution ~
 ---
 
-本章では前章までの実装を拡張して、外部関数を実行する機能を実装していく。
-最終的には次のようにクロージャーを`Wasm Runtime`に登録することで外部関数を実行できるようになる。
+In this chapter, we will extend the implementation from the previous chapter to include the functionality of executing external functions.
+Ultimately, by registering closures in the `Wasm Runtime`, we will be able to execute external functions.
 
 ```rust
 runtime.add_import("env", "add", |_, args| {
@@ -15,14 +15,14 @@ let result = runtime.call("call_add", args)?;
 assert_eq!(result, Some(Value::I32(want)));
 ```
 
-## `Import Section`のデコード実装
-[Wasmバイナリの構造](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure#import-section)の章で以下のように説明をしたとおり、`Wasm Runtime`にはインポート機能がある。
+## Implementation of `Import Section` Decoding
+As explained in the chapter on [Wasm Binary Structure](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure#import-section), the `Wasm Runtime` has an import feature.
 
-> `Import Section`がモジュール外にあるメモリや関数などをインポートするための情報が定義されている領域である。
-> モジュール外とは、他モジュールやRuntimeが用意したメモリや関数のことを指す。
+> The `Import Section` defines the area where information for importing external entities such as memory and functions located outside the module is specified.
+> External entities refer to memory and functions provided by other modules or the Runtime.
 
-本節では最終的に以下のWATをデコードできるようになる。
-といっても`Export Section`の処理とほぼ同じなので、すんなり理解できると思う。
+By the end of this section, you will be able to decode the following WAT.
+Although it is similar to processing the `Export Section`, you should be able to understand it smoothly.
 
 ```wat:src/fixtures/import.wat
 (module
@@ -34,7 +34,7 @@ assert_eq!(result, Some(Value::I32(want)));
 )
 ```
 
-バイナリ構造は次とおり。
+The binary structure is as follows.
 
 ```
 ; section "Import" (2)
@@ -50,7 +50,7 @@ assert_eq!(result, Some(Value::I32(want)));
 000001c: 00                ; import signature index
 ```
 
-まず`Export`と同様に`Import`を追加する。
+First, add `Import` similar to `Export`.
 
 src/binary/types.rs
 ```diff
@@ -109,8 +109,8 @@ index 5bf739d..dbcb30e 100644
  }
 ```
 
-次に、文字列をデコードする部分を`decode_name(...)`に切り出す。
-バイナリを見たらわかると思うが、モジュール名と関数名は文字列のため、複数回文字列をデコードする必要があるので使い回せるようにする必要がある。
+Next, extract the part that decodes strings into `decode_name(...)`.
+As you can see in the binary, module names and function names are strings, so it is necessary to decode strings multiple times, making it reusable.
 
 src/binary/module.rs
 ```diff
@@ -147,8 +147,8 @@ index dbcb30e..7430fbe 100644
      use crate::binary::{
 ```
 
-続けて、デコード処理を実装する。
-やっていることは`Import Section`のデコードとほぼ同じである。
+Then, implement the decoding process.
+It is similar to decoding the `Import Section`.
 
 src/binary/module.rs
 ```diff
@@ -213,7 +213,7 @@ index 7430fbe..e3253de 100644
      let (input, name) = take(size)(input)?;
 ```
 
-続けてテストコードを追加して、デコードの実装が問題ないことを確認する。
+Next, add test code to ensure that the decoding implementation is correct.
 
 src/binary/module.rs
 ```diff
@@ -286,9 +286,9 @@ test execution::runtime::tests::func_call ... ok
 test execution::runtime::tests::execute_i32_add ... ok
 ```
 
-## 外部関数実行の実装
+## Implementation of External Function Execution
 
-内部関数と同様、外部関数を実行する際に必要になる情報（モジュール名、関数名、関数シグネチャ）を持った`ExternalFuncInst`を用意する。
+Similar to internal functions, when executing external functions, you need `ExternalFuncInst` that holds information (module name, function name, function signature).
 
 src/execution/store.rs
 ```diff
@@ -316,10 +316,10 @@ index 3f6ecb2..922f2b1 100644
  pub struct ExportInst {
 ```
 
-内部関数と違って、外部関数はインポートしたものなので、実体Wasmバイナリ外にある。
-そのため、Wasmバイナリからみればなにかの関数を呼び出すだけということになる。
+Unlike internal functions, external functions are imported, so their actual implementation is outside the Wasm binary.
+Therefore, from the perspective of the Wasm binary, it is just calling some function.
 
-これをRustに例えると次のようなことをやっていることになる。
+In Rust terms, it is like doing the following:
 
 ```rust
 extern "C"  {
@@ -331,7 +331,7 @@ fn main() {
 }
 ```
 
-デコード処理は`Code Section`とほぼ同じことをやっていて、モジュール名と関数名、シグネチャ情報を取得している。
+The decoding process is similar to the `Code Section`, where it retrieves module names, function names, and signature information.
 
 src/execution/store.rs
 ```diff
@@ -384,8 +384,8 @@ index 922f2b1..5666a39 100644
                  let Some(ref func_types) = module.type_section else {
 ```
 
-続けて、外部関数をRuntimeに登録してWasmから実行できるようにしていく。
-まず、モジュール名と関数名で実行する関数を逆引きできるデータ構造の型エイリアスを定義する。
+Next, we will register external functions in the Runtime so that they can be executed from Wasm.
+First, define a type alias for a data structure that can reverse lookup functions based on module names and function names.
 
 src/execution/import.rs
 ```rust
@@ -411,11 +411,11 @@ index acbafa4..5d6aec6 100644
  pub mod value;
 ```
 
-`ImportFunc`は登録する関数を表現していて、クロージャーとなっている。
-次章でメモリを操作する処理を実装するため、`&mut Store`を受け取るインターフェイスにしている。
-`Import`は実際に逆引きする際に使うデータ構造の型となっている。
+`ImportFunc` represents the function being registered and is a closure.
+To implement memory manipulation in the next chapter, it takes a `&mut Store` as an interface.
+`Import` is the type of data structure used for reverse lookup.
 
-続けて、インポート情報を`Wasm Runtime`で持てるように`import`フィールドを追加する。
+Next, add the `import` field to be able to hold import information in the `Wasm Runtime`.
 
 src/execution/runtime.rs
 ```diff
@@ -441,8 +441,8 @@ index 5e2772f..cf7bcb9 100644
  impl Runtime {
 ```
 
-これでインポート情報を元に関数を逆引きできるようになったので、外部関数を実行する処理を次のように実装する。
-`invoke_external(...)`は外部関数を実行する関数で、やっていることはモジュール名と関数名で逆引きして得たクロージャーを呼び出しているだけ。
+With this, it is now possible to reverse lookup functions based on import information, so the process of executing external functions is implemented as follows.
+The `invoke_external(...)` function is responsible for executing external functions, and all it does is call the closure obtained by reverse lookup with the module name and function name.
 
 src/execution/runtime.rs
 ```diff
@@ -498,7 +498,7 @@ index cf7bcb9..bd1a1e5 100644
              }
 ```
 
-これで外部関数を実行できるようになったので、次に外部関数を登録する関数を`Runtime`に追加する。
+Now that external functions can be executed, the next step is to add a function to register external functions in the `Runtime`.
 
 src/execution/runtime.rs
 ```diff
@@ -526,7 +526,7 @@ index bd1a1e5..41e50c6 100644
              .store
 ```
 
-最後にテストを追加して、問題なく動作することを確認する。
+Finally, add tests to ensure that everything works correctly.
 
 src/execution/runtime.rs
 ```diff
@@ -574,7 +574,7 @@ test execution::runtime::tests::func_call ... ok
 test execution::runtime::tests::not_found_export_function ... ok
 ```
 
-外部関数が見つからない場合はちゃんとエラーになることも合わせて確認する。
+Also, make sure that an error occurs properly if an external function is not found.
 
 src/execution/runtime.rs
 ```diff
@@ -604,9 +604,8 @@ running 1 test
 test execution::runtime::tests::not_found_imported_func ... ok
 ```
 
-## まとめ
-本章では外部関数を実行できるところまで実装した。
-徐々に`Wasm Runtime`が形になってきた。
+## Summary
+In this chapter, the implementation has progressed to the point where external functions can be executed.
+Gradually, the `Wasm Runtime` is taking shape.
 
-実は外部関数を実行できる時点で`"Hello, World"`を出力できるようになるが、
-本書はちゃんと`WASI`を実装して出力する。
+In fact, being able to execute external functions means being able to output `"Hello, World"`, but this book implements `WASI` properly for output.

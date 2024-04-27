@@ -1,9 +1,9 @@
 ---
-番外編 ~ フィボナッチ関数が動くまで ~
+Extra Edition ~ Until the Fibonacci Function Works ~
 ---
 
-本章は番外編としてフィボナッチ関数を実行できるように、追加実装をしていく。
-`Hello, World!`の出力だとちょっと物足りない人にとってちょうどよいデザートになると思う。
+In this chapter, we will add additional implementations to make the Fibonacci function executable as an extra edition.
+For those who find the output of `Hello, World!` a bit unsatisfying, this will be a perfect dessert.
 
 ```wat
 (module
@@ -22,10 +22,10 @@
 )
 ```
 
-## バイナリ構造について
+## About Binary Structure
 
-`if`のようなフロー制御命令がある場合はどのようなバイナリ構造になるかについて解説する。
-次が関数の部分のバイナリ構造となっている
+We will explain what the binary structure looks like when there are flow control instructions like `if`.
+The following is the binary structure of the function part.
 
 ```
 ; function body 0
@@ -61,16 +61,16 @@
 000003d: 0b          ; end
 ```
 
-上記では次の未実装の命令を使っている。
+In the above, the following instructions are used for the unimplemented part.
 
-| 命令       | 概要                                               |
-|------------|----------------------------------------------------|
-| `i32.sub`  | スタックにある2つの値を`pop`して引き算する         |
-| `i32.lt_s` | スタックから2つ値を`pop`して`<`で比較する          |
-| `if`       | スタックから1つ値を`pop`して評価して分岐を処理する |
-| `return`   | 呼び出し元に戻る                                   |
+| Instruction | Description                                      |
+|-------------|--------------------------------------------------|
+| `i32.sub`   | Pop two values from the stack and subtract them  |
+| `i32.lt_s`  | Pop two values from the stack and compare with `<`|
+| `if`        | Pop one value from the stack, evaluate, and process branching |
+| `return`    | Return to the caller                             |
 
-まずは`if`の部分の命令列を見ていく。
+Let's first look at the instruction sequence for the `if` part.
 
 ```wat
 (if
@@ -79,7 +79,7 @@
 )
 ```
 
-命令列は次のとおり。
+The instruction sequence is as follows.
 
 ```wat
 0000022: 20          ; local.get
@@ -95,16 +95,16 @@
 000002c: 0b          ; end
 ```
 
-引数と`2`をスタックに`push`して、`i32.lt_s`を使って`<`で比較して結果をスタックに`push`している。
-ちなみに`Wasm`では比較結果が`0`の場合は`false`、それ以外は`true`になる。
+It pushes the argument and `2` onto the stack, uses `i32.lt_s` to compare with `<`, and pushes the result onto the stack.
+By the way, in `Wasm`, if the comparison result is `0`, it is `false`; otherwise, it is `true`.
 
-次に`if`はスタックから比較結果を`pop`して`true`なら次に進み、`false`なら`end`までジャンプする。
-`if`の次の`void`だが、`Wasm`では`if`は値を返すことができて、`void`は返り値なしという意味となっている。
-この部分は`if`命令のオペランドになる。
+Next, after popping the comparison result from the stack, if it is `true`, it proceeds; if it is `false`, it jumps to `end`.
+Following `if` is `void`, but in `Wasm`, `if` can return a value, and `void` means no return value.
+This part becomes the operand of the `if` instruction.
 
-今回では`true`の場合は`1`をスタックに`push`して`return`で呼び出し元に戻る。
+In this case, if it is `true`, it pushes `1` onto the stack and returns to the caller using `return`.
 
-次に`return`以降の部分を見ていく
+Next, let's look at the part after `return`.
 
 ```wat
 (return
@@ -115,7 +115,7 @@
 )
 ```
 
-命令列は次のとおり。
+The instruction sequence is as follows.
 
 ```
 000002d: 20          ; local.get     
@@ -137,7 +137,7 @@
 000003d: 0b          ; end           
 ```
 
-ちょっと分かりづらいかもしれないので、どの命令がどの処理なのか補足すると次のようになる。
+It might be a bit hard to understand, so to clarify which instruction corresponds to which operation, it looks like this.
 
 ```
 local.get        ┐                  ┐                 ┐
@@ -159,11 +159,11 @@ return           ┌──────────────────┘
 end              ┘                                                    
 ```
 
-## 命令デコードの実装
+## Instruction Decoding Implementation
 
-バイナリ構造についてわかったと思うので、実装していく。
+Now that we understand the binary structure, let's implement it.
 
-最初にオペコードを追加する。
+First, add the opcode.
 
 src/binary/opcode.rs
 ```diff
@@ -189,7 +189,7 @@ index 1e0931b..165a563 100644
  }
 ```
 
-次に`if`命令で使う`Block`を定義する。
+Next, define the `Block` used in the `if` instruction.
 
 src/binary/types.rs
 ```diff
@@ -223,12 +223,12 @@ index bff2cd4..474c296 100644
 +}
 ```
 
-`Wasm`の`if`命令は戻り値の数を`Block`で表現していて、`Block::Void`の場合は戻り値がない、ある場合は`Block::Value`になる。
-今回は特に戻り値がないので、基本的に`Block::Void`になる。
+In `Wasm`, the `if` instruction represents the number of return values with `Block`, where `Block::Void` means no return value, and `Block::Value` means there is a return value.
+Since there are no return values in this case, it will mostly be `Block::Void`.
 
-ちなみに`If`命令以外にも`block`と`loop`命令があり、これらも同様に戻り値のオペランドを持っているので、それらでも`Block`を使う。
+Additionally, besides the `If` instruction, there are also `block` and `loop` instructions, which similarly have operands for return values, so `Block` is used for those as well.
 
-続けて命令を定義していく。
+Next, define the instructions.
 
 src/binary/instruction.rs
 ```diff
@@ -315,10 +315,10 @@ index 3fdd323..82e250f 100644
      let (input, name) = take(size)(input)?;
 ```
 
-`decode_block(...)`は`Block`を生成している関数だが、`if`の次が`0x40`の場合は戻り値なしを意味し、それ以外はそのまま戻り値の数の値になる。
-なお、version 1では戻り値は1つしか返せないので実質`1`固定になる。
+`decode_block(...)` is a function that generates `Block`, and if the next after `if` is `0x40`, it means no return value, otherwise it becomes the value of the number of return values.
+In version 1, since only one return value can be returned, it effectively becomes `1`.
 
-続けて命令実装の部分は一旦TODOにしておく。
+For the part of implementing instructions, let's leave it as TODO for now.
 
 src/execution/runtime.rs
 ```diff
@@ -336,7 +336,7 @@ index 573539f..0ebce7c 100644
          Ok(())
 ```
 
-これでデコードのテストを書けるようになったので、実装が問題ないことを確認する。
+Now you can write tests for decoding, ensuring that the implementation is correct.
 
 src/binary/module.rs
 ```diff
@@ -434,13 +434,13 @@ test execution::runtime::tests::local_set ... ok
 test execution::runtime::tests::fib ... ok
 ```
 
-## 命令の実装
+## Implementation of Commands
 
-デコード処理できたので、次に命令の実装をしていく。
-まず一番簡単な`i32.sub`から実装する。
+Now that the decoding process is complete, let's move on to implementing the commands.
+We will start by implementing the simplest command, `i32.sub`.
 
-### `i32.sub`の実装
-まず`std::ops::Sub`を実装して`Value`同士で引き算ができるようにする。
+### Implementation of `i32.sub`
+First, we will implement `std::ops::Sub` to enable subtraction between `Value` instances.
 
 src/execution/value.rs
 ```diff
@@ -487,7 +487,7 @@ index 0ebce7c..a2aabe9 100644
                          bail!("not found func");
 ```
 
-テストを追加して実装が問題ないことを確認する。
+Add tests to ensure the implementation is correct.
 
 ```wat:src/fixtures/func_sub.wat
 (module
@@ -546,10 +546,9 @@ test execution::runtime::tests::local_set ... ok
 test execution::store::test::init_memory ... ok
 ```
 
-### `i32.lt_s`の実装
+### Implementation of `i32.lt_s`
 
-`lt_s`は`i32`同士を`<`で比較する命令なので、まずそれができるように`std::cmp::Ordering`を実装していく。
-また、比較結果は`bool`になるので、それをスタックに`push`できるように`From<bool> for Value`も実装する。
+The `lt_s` command compares two `i32` values using `<`. We will first implement `std::cmp::Ordering` to enable this comparison. Additionally, since the result of the comparison will be a `bool`, we will implement `From<bool> for Value` to push this result onto the stack.
 
 /src/execution/value.rs
 ```diff
@@ -592,7 +591,7 @@ index 6a7820f..eee47ac 100644
 +}
 ```
 
-続けて命令も実装し、テストを追加して実装が問題ないことを確認する。
+Next, we will implement the command and add tests to ensure the implementation is correct.
 
 /src/execution/runtime.rs
 ```diff
@@ -662,16 +661,15 @@ test execution::runtime::tests::not_found_export_function ... ok
 test execution::runtime::tests::i32_lts ... ok
 ```
 
-### `if`/`return`の実装
+### Implementation of `if`/`return`
 
-続けて`if`のフロー制御命令を実装していく。
+Next, we will implement flow control commands for `if`.
 
-まず最初に`Label`を追加する。
-`Label`は`if`や`block`など戻り値を持つブロックの制御に使う。
+First, we will add a `Label`. `Label` is used for controlling blocks that have return values, such as `if` or `block`.
 
-たとえば`if`の場合は`else`の分岐もある（今回は実装しない）が、評価結果が`false`の場合は`else`命令にジャンプする必要があり、その挙動を`Label`を使って実現する。
+For example, in the case of `if`, there may be an `else` branch (which we are not implementing in this case). If the evaluation result is `false`, we need to jump to the `else` command, and this behavior is achieved using `Label`.
 
-また、`if`のブロックを抜ける際にスタックを巻き戻す必要があるが、それも同様に`Label`を使って実現する。
+Additionally, when exiting the `if` block, we need to rewind the stack, which is also achieved using `Label`.
 
 src/execution/value.rs
 ```diff
@@ -698,7 +696,7 @@ index eee47ac..5c49e06 100644
 +}
 ```
 
-次に、命令処理の実装をしていく。
+Next, we will proceed with the command processing implementation.
 
 src/execution/runtime.rs
 ```diff
@@ -802,19 +800,18 @@ index 8d9ff62..f0d90f8 100644
          let Some(value) = stack.pop() else {
 ```
 
-`if`命令では次のことをやっている。
+In the `if` command, we are doing the following:
 
-1. スタックから値を1つ`pop`して評価
-2. `false`だった場合は`if`の終わりの`pc`を算出
-    - `true`の場合は`pc`を調整する必要はなく、そのままラベルを`push`して続きの命令を処理する
-3. `if`がネストすることがあるので、その場合は`depth`で制御
+1. Pop a value from the stack for evaluation.
+2. If it is `false`, calculate the end `pc` of the `if` command.
+    - If it is `true`, there is no need to adjust the `pc`; we simply push the label and continue processing the next command.
+3. Since `if` commands can be nested, we control this with `depth`.
 
-ちなみに`if`の終わりは関数の終わりと同じく`end`命令となっている。これは`block`と`loop`命令も同様である。
+It is worth noting that the end of an `if` command is similar to the end of a function, marked by the `end` command. This is also the case for `block` and `loop` commands.
 
-なので`end`命令を処理する際に`if`/`block`/`loop`なのか、関数の終わりなのかを判定する必要がある。
-判定方法はシンプルで、`if`/`block`/`loop`のときはラベルが積まれるので、ラベルが空の場合は関数の終わりというふうに判定できる。
+Therefore, when processing the `end` command, we need to determine whether it is the end of an `if`/`block`/`loop` or the end of a function. This determination is simple: if the label stack is empty, it signifies the end of a function.
 
-実際の実装は次のとおり。
+The actual implementation is as follows.
 
 src/execution/runtime.rs
 ```diff
@@ -854,10 +851,9 @@ index f0d90f8..23ee5dc 100644
          Ok(())
 ```
 
-ラベルがある場合は`if`などの終了を意味し`pc`とスタックを調整する。
-スタックを調整する理由だが、`if`のブロック内の処理でスタックに値が溜まったままになっていることがあるためである。
+If a label exists, it signifies the end of an `if` command, and we adjust the `pc` and stack accordingly. The reason for adjusting the stack is that there may be values left on the stack from processing within the `if` block.
 
-例えば、次のように`if`が`true`になって`3`がスタックに積まれるだけの処理の場合、値がスタックに残ったままなのでそれらを巻き戻す必要がある。
+For example, if the `if` evaluates to `true` and only pushes `3` onto the stack, there will be values left on the stack that need to be rewound.
 
 ```wat
 (if
@@ -866,7 +862,7 @@ index f0d90f8..23ee5dc 100644
 )
 ```
 
-これで、フィボナッチ関数を実行するための実装は終わったので、テストを追加して実装が問題ないことを確認する。
+With this, the implementation for running the Fibonacci function is complete. Now, let's add tests to ensure that the implementation is correct.
 
 src/execution/runtime.rs
 ```diff
@@ -933,10 +929,9 @@ test execution::runtime::tests::not_found_imported_func ... ok
 test execution::runtime::tests::fib ... ok
 ```
 
-## まとめ
+## Summary
 
-これでフィボナッチ関数が動く`Wasm Runtime`が出来上がった。
-制御命令の実装はちょっとおもしろかったのではなかろうか？
+With this, a `Wasm Runtime` capable of running the Fibonacci function has been created.
+The implementation of control instructions was quite interesting, wasn't it?
 
-もし、こういうのも動かしたいなどの要望があればぜひissueに書いてもらえると嬉しい。
-気が向くと書くかもしれない。
+If you have any requests such as wanting to run something like this, please feel free to write it in an issue. I would be happy to consider writing about it when I feel like it.

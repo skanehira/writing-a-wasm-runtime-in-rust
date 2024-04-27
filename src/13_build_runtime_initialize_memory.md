@@ -1,9 +1,9 @@
 ---
-Runtimeの実装 ~ メモリ初期化まで ~
+Implementation of Runtime ~ Up to Memory Initialization ~
 ---
 
-本章では`Wasm Runtime`が持つメモリを初期化してデータを配置する機能を実装する。
-最終的には次のWATで`Wasm Runtime`のメモリを初期化できるようになる。
+In this chapter, we will implement the functionality to initialize the memory held by the `Wasm Runtime` and place data in it.
+Ultimately, we will be able to initialize the memory of the `Wasm Runtime` with the following WAT.
 
 ```WAT:src/fixtures/memory.wat
 (module
@@ -13,14 +13,14 @@ Runtimeの実装 ~ メモリ初期化まで ~
 )
 ```
 
-## `Memory Section`のデコード実装
+## Implementation of `Memory Section` Decoding
 
-まず`Memory Section`をデコードできるようにしていく。
-`Memory Section`は`Wasm Runtime`初期化時にどれくらいメモリを確保するかの情報を持っているので、このセクションをデコードすることでメモリを確保できるようになる。
+First, we will work on decoding the `Memory Section`.
+The `Memory Section` contains information on how much memory to allocate during `Wasm Runtime` initialization, so by decoding this section, we will be able to allocate memory.
 
-詳細なバイナリ構造は[Wasmバイナリの構造](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure#memory-section)の章を参照。
+For detailed binary structure, refer to the chapter on [Wasm Binary Structure](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure#memory-section).
 
-最初にメモリの情報を持つ`Memory`を定義する。
+First, define the `Memory` that holds memory information.
 
 /src/binary/types.rs
 ```diff
@@ -45,7 +45,7 @@ index 64912f8..3d620f3 100644
 +}
 ```
 
-続けて、デコード処理を実装する。
+Next, implement the decoding process.
 
 src/binary/module.rs
 ```diff
@@ -118,16 +118,16 @@ index 2a8dbfa..d7b56ba 100644
      let (input, name) = take(size)(input)?;
 ```
 
-デコード処理は次のことをやっている。
+The decoding process does the following:
 
-1. メモリの数を取得
-    - version 1ではメモリは1つしか扱えないので、このまま読み飛ばしている
-2. `flags`と`min`を読み取る
-    - `flags`はページ数の上限指定があるかどうかを確認するための値
-    - `min`は初期のページ数
-3. `flags`が`0`の場合はページ数上限の指定がないことを意味し、`1`の場合は上限があるのでその値を読み取る
+1. Retrieve the number of memories
+    - In version 1, only one memory can be handled, so it is currently being skipped
+2. Read `flags` and `min`
+    - `flags` is a value used to check if there is an upper limit specification for the number of pages
+    - `min` is the initial number of pages
+3. If `flags` is `0`, it means there is no specification for the upper limit of pages, and if it is `1`, there is a limit, so read that value
 
-これでメモリ確保に必要な情報が揃ったので、次は`Runtime`でメモリを持てるように実装する。
+With this information necessary for memory allocation gathered, the next step is to implement the ability for the `Runtime` to have memory.
 
 src/execution/store.rs
 ```diff
@@ -193,21 +193,20 @@ index 5666a39..efadc19 100644
      }
 ```
 
-`MemoryInst`はメモリの実態で、`data`が実際に`Wasm Runtime`が操作できるメモリ領域となっている。
-見ての通り、ただの可変長配列である。
+`MemoryInst` represents the actual memory, where `data` is the memory area that the `Wasm Runtime` can operate on.
+As you can see, it is simply a variable-length array.
 
-`Wasm Runtime`が操作できるメモリは`MemoryInst::data`だけなので、他のプログラムとメモリ領域が被ってしまうことは発生しない。
-セキュアと言われる理由の一つである。
+The memory that the `Wasm Runtime` can operate on is only `MemoryInst::data`, so there will be no overlap with memory areas of other programs, which is one of the reasons it is considered secure.
 
-メモリ確保の処理は次のことをやっている。
+The memory allocation process does the following:
 
-1. `memory.limits.min`はページ数なので、それとページサイズを掛けて確保する最小のメモリ量を計算
-2. 1で計算したサイズ分の配列を0埋めで初期化する
+1. Since `memory.limits.min` represents the number of pages, calculate the minimum amount of memory to allocate by multiplying it with the page size
+2. Initialize an array of the calculated size with zeros
 
-ちなみに、今回実装する範囲では特に使わないが`memory.limits.max`はメモリの上限チェックに使用する。
-`Wasm`では`memory.grow`命令を使ってメモリを増やせるが、増やせる上限を超えているかどうかをチェックするために使用する。
+Additionally, although not used extensively in the scope of this implementation, `memory.limits.max` is used for checking the upper limit of memory.
+In `Wasm`, the `memory.grow` instruction is used to increase memory, and this is used to check if the increase exceeds the allowable limit.
 
-続けてテストで問題なくデコードできることを確認する。
+Next, confirm that decoding works correctly in tests.
 
 src/binary/module.rs
 ```diff
@@ -276,12 +275,12 @@ test execution::runtime::tests::not_found_imported_func ... ok
 test execution::runtime::tests::call_imported_func ... ok
 ```
 
-## `Data Section`のデコード実装
+## Implementation of `Data Section` Decoding
 
-`Data Section`は`Runtime`でメモリを確保したあとに配置するデータが定義されている領域なので、それをデコードしてメモリに配置する実装をしていく。
-詳細なバイナリ構造は[Wasmバイナリの構造](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure#data-section)を参照。
+The `Data Section` defines the area where data to be placed in memory after memory allocation by the `Runtime` is specified. We will proceed with implementing the decoding to place this data in memory.
+For detailed binary structure, refer to the [Wasm Binary Structure](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure#data-section).
 
-まず次の構造体を用意する。
+First, prepare the following structure.
 
 src/binary/types.rs
 ```diff
@@ -302,175 +301,32 @@ index 3d620f3..bff2cd4 100644
 +}
 ```
 
-それぞれのフィールドは次のようになっている。
+Each field is as follows:
 
-- `memory_index`: データの配置先のメモリを指している
-  - version 1ではメモリは1つしか扱えないので基本的に`0`になる
-- `offset`: 配置するデータのメモリ上の先頭位置、`0`の場合は`0`バイト目から配置する
-- `init`: 配置するデータのバイト列そのもの
+- `memory_index`: Points to the memory where the data will be placed
+  - In version 1, since only one memory can be handled, it will generally be `0`
+- `offset`: The starting position in memory where the data will be placed; if `0`, the data will be placed starting from byte `0`
+- `init`: The byte sequence of the data to be placed
 
-続けてデコード処理を実装する。
+Next, implement the decoding process.
 
-src/binary/module.rs
 ```diff
-diff --git a/src/binary/module.rs b/src/binary/module.rs
-index 3e59d35..46db8dc 100644
---- a/src/binary/module.rs
-+++ b/src/binary/module.rs
-@@ -3,7 +3,8 @@ use super::{
-     opcode::Opcode,
-     section::{Function, SectionCode},
-     types::{
--        Export, ExportDesc, FuncType, FunctionLocal, Import, ImportDesc, Limits, Memory, ValueType,
-+        Data, Export, ExportDesc, FuncType, FunctionLocal, Import, ImportDesc, Limits, Memory,
-+        ValueType,
-     },
- };
- use nom::{
-@@ -21,6 +22,7 @@ pub struct Module {
-     pub magic: String,
-     pub version: u32,
-     pub memory_section: Option<Vec<Memory>>,
-+    pub data_section: Option<Vec<Data>>,
-     pub type_section: Option<Vec<FuncType>>,
-     pub function_section: Option<Vec<u32>>,
-     pub code_section: Option<Vec<Function>>,
-@@ -34,6 +36,7 @@ impl Default for Module {
-             magic: "\0asm".to_string(),
-             version: 1,
-             memory_section: None,
-+            data_section: None,
-             type_section: None,
-             function_section: None,
-             code_section: None,
-@@ -75,6 +78,10 @@ impl Module {
-                             let (_, memory) = decode_memory_section(section_contents)?;
-                             module.memory_section = Some(vec![memory]);
-                         }
-+                        SectionCode::Data => {
-+                            let (_, data) = deocde_data_section(section_contents)?;
-+                            module.data_section = Some(data);
-+                        }
-                         SectionCode::Type => {
-                             let (_, types) = decode_type_section(section_contents)?;
-                             module.type_section = Some(types);
-@@ -95,7 +102,6 @@ impl Module {
-                             let (_, imports) = decode_import_section(section_contents)?;
-                             module.import_section = Some(imports);
-                         }
--                        _ => todo!(),
-                     };
- 
-                     remaining = rest;
-@@ -286,6 +292,31 @@ fn decode_limits(input: &[u8]) -> IResult<&[u8], Limits> {
-     Ok((input, Limits { min, max }))
- }
- 
-+fn decode_expr(input: &[u8]) -> IResult<&[u8], u32> {
-+    let (input, _) = leb128_u32(input)?;
-+    let (input, offset) = leb128_u32(input)?;
-+    let (input, _) = leb128_u32(input)?;
-+    Ok((input, offset))
-+}
-+
-+fn deocde_data_section(input: &[u8]) -> IResult<&[u8], Vec<Data>> {
-+    let (mut input, count) = leb128_u32(input)?; // 1
-+    let mut data = vec![];
-+    for _ in 0..count {
-+        let (rest, memory_index) = leb128_u32(input)?;
-+        let (rest, offset) = decode_expr(rest)?; // 2
-+        let (rest, size) = leb128_u32(rest)?; // 3
-+        let (rest, init) = take(size)(rest)?; // 4
-+        data.push(Data {
-+            memory_index,
-+            offset,
-+            init: init.into(),
-+        });
-+        input = rest;
-+    }
-+    Ok((input, data))
-+}
-+
- fn decode_name(input: &[u8]) -> IResult<&[u8], String> {
-     let (input, size) = leb128_u32(input)?;
-     let (input, name) = take(size)(input)?;
+src/binary/module.rs
 ```
 
-デコード処理では次のことをやっている。
+In the decoding process, the following steps are performed:
 
-1. `segument`の個数を取得
-  `(data ...)`が1 segumentになるので、複数定義されている場合は複数回処理をする必要がある
-2. `offset`を計算する
-  本来は`decode_expr(...)`で命令列を処理して`offset`の値を計算する必要があるが、今回は`[i32.const, 1, end]`の命令列を前提にした実装で留める
-3. データのサイズを取得する
-4. 3のサイズ分のバイト列を取得、これが実際のデータになる
+1. Obtain the number of `segments`
+   If `(data ...)` becomes one segment, then if multiple are defined, processing needs to be done multiple times.
+2. Calculate the `offset`
+   Normally, the value of `offset` needs to be calculated by processing the instruction sequence in `decode_expr(...)`, but for now, the implementation is based on the assumption of the instruction sequence `[i32.const, 1, end]`.
+3. Obtain the size of the data.
+4. Retrieve a byte array of the size from step 3, which becomes the actual data.
 
-続けて、テストを追加して実装が問題ないことを確認する。
+Next, add tests to ensure the implementation is correct.
 
-src/binary/module.rs
 ```diff
-diff --git a/src/binary/module.rs b/src/binary/module.rs
-index c0c1aff..40f20fd 100644
---- a/src/binary/module.rs
-+++ b/src/binary/module.rs
-@@ -333,7 +333,7 @@ mod tests {
-         module::Module,
-         section::Function,
-         types::{
--            Export, ExportDesc, FuncType, FunctionLocal, Import, ImportDesc, Limits, Memory,
-+            Data, Export, ExportDesc, FuncType, FunctionLocal, Import, ImportDesc, Limits, Memory,
-             ValueType,
-         },
-     };
-@@ -547,4 +547,48 @@ mod tests {
-         }
-         Ok(())
-     }
-+
-+    #[test]
-+    fn decode_data() -> Result<()> {
-+        let tests = vec![
-+            (
-+                "(module (memory 1) (data (i32.const 0) \"hello\"))",
-+                vec![Data {
-+                    memory_index: 0,
-+                    offset: 0,
-+                    init: "hello".as_bytes().to_vec(),
-+                }],
-+            ),
-+            (
-+                "(module (memory 1) (data (i32.const 0) \"hello\") (data (i32.const 5) \"world\"))",
-+                vec![
-+                    Data {
-+                        memory_index: 0,
-+                        offset: 0,
-+                        init: b"hello".into(),
-+                    },
-+                    Data {
-+                        memory_index: 0,
-+                        offset: 5,
-+                        init: b"world".into(),
-+                    },
-+                ],
-+            ),
-+        ];
-+
-+        for (wasm, data) in tests {
-+            let module = Module::new(&wat::parse_str(wasm)?)?;
-+            assert_eq!(
-+                module,
-+                Module {
-+                    memory_section: Some(vec![Memory {
-+                        limits: Limits { min: 1, max: None }
-+                    }]),
-+                    data_section: Some(data),
-+                    ..Default::default()
-+                }
-+            );
-+        }
-+        Ok(())
-+    }
- }
+src/binary/module.rs
 ```
 
 ```sh
@@ -491,80 +347,17 @@ test execution::runtime::tests::func_call ... ok
 test execution::runtime::tests::not_found_imported_func ... ok
 ```
 
-メモリデータを取得できるようになったので、最後に`Runtime`のメモリ上にデータを配置していく。
+Now that we can retrieve memory data, we will proceed to place the data on the `Runtime` memory.
 
-src/execution/store.rs
 ```diff
-diff --git a/src/execution/store.rs b/src/execution/store.rs
-index efadc19..cad96ca 100644
---- a/src/execution/store.rs
-+++ b/src/execution/store.rs
-@@ -5,7 +5,7 @@ use crate::binary::{
-     module::Module,
-     types::{ExportDesc, FuncType, ImportDesc, ValueType},
- };
--use anyhow::{bail, Result};
-+use anyhow::{anyhow, bail, Result};
- 
- pub const PAGE_SIZE: u32 = 65536; // 64Ki
- 
-@@ -146,6 +146,22 @@ impl Store {
-             }
-         }
- 
-+        if let Some(ref sections) = module.data_section {
-+            for data in sections {
-+                let memory = memories
-+                    .get_mut(data.memory_index as usize)
-+                    .ok_or(anyhow!("not found memory"))?;
-+
-+                let offset = data.offset as usize;
-+                let init = &data.init;
-+
-+                if offset + init.len() > memory.data.len() {
-+                    bail!("data is too large to fit in memory");
-+                }
-+                memory.data[offset..offset + init.len()].copy_from_slice(init);
-+            }
-+        }
-+
-         Ok(Self {
-             funcs,
-             memories,
+src/execution/store.rs
 ```
 
-やっていることはシンプルで、メモリに`Data Section`のデータを指定した場所にコピーしている。
-最後にテストを追加して実装が問題ないことを確認する。
+The process is simple, copying the data from the `Data Section` to the specified location in memory.
+Finally, add tests to ensure the implementation is correct.
 
-src/execution/store.rs
 ```diff
-diff --git a/src/execution/store.rs b/src/execution/store.rs
-index cad96ca..1bb1192 100644
---- a/src/execution/store.rs
-+++ b/src/execution/store.rs
-@@ -169,3 +169,32 @@ impl Store {
-         })
-     }
- }
-+
-+#[cfg(test)]
-+mod test {
-+    use super::Store;
-+    use crate::binary::module::Module;
-+    use anyhow::Result;
-+
-+    #[test]
-+    fn init_memory() -> Result<()> {
-+        let wasm = wat::parse_file("src/fixtures/memory.wat")?;
-+        let module = Module::new(&wasm)?;
-+        let store = Store::new(module)?;
-+        assert_eq!(store.memories.len(), 1);
-+        assert_eq!(store.memories[0].data.len(), 65536);
-+        assert_eq!(&store.memories[0].data[0..5], b"hello");
-+        assert_eq!(&store.memories[0].data[5..10], b"world");
-+        Ok(())
-+    }
-+}
+src/execution/store.rs
 ```
 
 ```sh
@@ -586,7 +379,6 @@ test execution::runtime::tests::func_call ... ok
 test execution::runtime::tests::not_found_imported_func ... ok
 ```
 
-## まとめ
-本章ではメモリ初期化の機能を実装した。
-これでメモリ上に任意のデータを配置できるようになったので、
-次章ではメモリ上に`Hello, World!`を配置して、それを出力できるようにしていく。
+## Summary
+In this chapter, the functionality for initializing memory has been implemented.
+With this, we can now place arbitrary data on memory, so in the next chapter, we will place `Hello, World!` on memory and work towards being able to output it.

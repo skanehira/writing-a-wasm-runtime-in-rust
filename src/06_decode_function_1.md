@@ -1,10 +1,10 @@
 ---
-関数のデコード実装 ~ セクションのデコードまで ~
+Decoding Function Implementation ~ Up to Decoding Sections ~
 ---
 
-前章ではデコードの基本的な実装方法について解説をしたので、本章では関数をデコードできるように実装していく。
+In the previous chapter, we explained the basic implementation methods for decoding. In this chapter, we will implement decoding functions.
 
-まず手始めに次のように何もしないもっとも小さな関数をデコードできるように実装をしていく。
+To start, we will implement the smallest function that does nothing so that it can be decoded as follows:
 
 ```wat
 (module
@@ -12,7 +12,7 @@
 )
 ```
 
-上記のWATをWasmバイナリにコンパイルすると次のようなバイナリ構造になる。
+Compiling the above WAT to a Wasm binary results in the following binary structure:
 
 ```
 0000000: 0061 736d        ; WASM_BINARY_MAGIC
@@ -40,20 +40,19 @@
 0000017: 0b               ; end
 ```
 
-## セクションのデコード
-関数のデコードを実装するには、次のセクションのデコード処理を実装する必要がある。
+## Decoding Sections
+To implement the decoding of functions, it is necessary to implement the decoding process for the following sections.
 
-| セクション         | 概要                                 |
+| Section            | Description                          |
 |--------------------|--------------------------------------|
-| `Type Section`     | 関数シグネチャの情報                 |
-| `Code Section`     | 関数ごとの命令などの情報             |
-| `Function Section` | 関数シグネチャへの参照情報           |
+| `Type Section`     | Information about function signatures|
+| `Code Section`     | Information such as instructions for each function|
+| `Function Section` | Reference information to function signatures|
 
-各種セクションのフォーマットについてはWasmバイナリの構造の章で説明したとおりなので、それを参照してもらいながら実装について解説していく。
+The format of each section is as described in the chapter on the structure of Wasm binaries, so we will explain the implementation while referring to that.
 
-### セクションヘッダーのデコード
-各種セクションには必ず`section code`と`section size`を持つセクションヘッダーがあるので、
-まずは`src/binary/section.rs`ファイルを作成して、`section code`のEnumを定義する。
+### Decoding Section Headers
+Each section has a section header that always includes `section code` and `section size`. Therefore, first create the `src/binary/section.rs` file and define an Enum for `section code`.
 
 src/binary/section.rs
 ```rust
@@ -77,7 +76,7 @@ src/binary.rs
 +pub mod section;
 ```
 
-この`SectionCode`をみて、各セクションのデコード処理をしていくことになる。
+By looking at this `SectionCode`, we will proceed with the decoding process for each section.
 
 ```rust
 match code {
@@ -91,8 +90,7 @@ match code {
 }
 ```
 
-次にセクションヘッダーをデコードする関数`decode_section_header()`を実装していく。
-この関数は入力から`section code`と`section size`を取得するだけだが、いくつか新しい関数があるのでそれについて解説していく。
+Next, we will implement the function `decode_section_header()` to decode the section headers. This function simply retrieves `section code` and `section size` from the input, but there are some new functions, so we will explain them.
 
 src/binary/module.rs
 ```diff
@@ -129,29 +127,25 @@ src/binary/module.rs
      use crate::binary::module::Module;
 ```
 
-①の`pair()`は2つのパーサーをもとに、新しいパーサーを返してくれる。
-`pair()`を使っている理由だが、`section code`と`section size`はフォーマットが決まっているので、それぞれをパースする関数をまとめて1回の関数呼び出しで処理できるようするためである。
+① `pair()` returns a new parser based on two parsers. The reason for using `pair()` is that the formats of `section code` and `section size` are fixed, so by parsing each of them together, we can process them in a single function call.
 
-`pair()`を使わない場合は次のような実装になる。
+If `pair()` is not used, the implementation would look like this:
 
 ```rust
 let (input, code) = le_u8(input);
 let (input, size) = leb128_u32(input);
 ```
 
-`section code`は1バイト固定なので`le_u8()`を使っている。
-`section size`はLEB128[^1]でエンコードされた`u32`なので、値を読み取る際は`leb128_u32()`を使う必要がある。
+`section code` is fixed at 1 byte, so `le_u8()` is used.
+`section size` is an `u32` encoded with LEB128[^1], so when reading the value, `leb128_u32()` is needed.
 
 <div class="warning">
 
-`Wasm spec`では数値はすべてLEB128でエンコードすると定められていることに注意  
-筆者はこれを知らず、テストが通らなくて数時間を溶かしたことがある
+Note that in the `Wasm spec`, all numbers are required to be encoded with LEB128. The author once spent several hours trying to pass tests without knowing this.
 
 </div>
 
-②の`SectionCode::from_u8()`は`num_derive::FromPrimitive`マクロで実装された関数である。
-読み取った1バイトの数値から`SectionCode`に変換するために使っている。
-これを使わない場合、次のように筋肉で解決する必要が出てくる。
+② `SectionCode::from_u8()` is a function implemented with the `num_derive::FromPrimitive` macro. It is used to convert the read 1-byte number to a `SectionCode`. Without using this, a manual solution like the following would be necessary:
 
 ```rust
 impl From<u8> for SectionCode {
@@ -165,7 +159,7 @@ impl From<u8> for SectionCode {
 }
 ```
 
-セクションヘッダーのデコードの実装はできたので、続けてデコード処理の骨組みを実装していく。
+Now that the implementation of decoding the section headers is done, we will proceed to implement the framework for decoding.
 
 src/binary/module.rs
 ```diff
@@ -202,19 +196,19 @@ src/binary/module.rs
  }
 ```
 
-上記の実装では、次のことをやっている。
+In the above implementation, the following steps are performed:
 
-1. 入力である`remaining`が空になるまで、②~⑤の処理を繰り返す
-2. セクションヘッダーをデコードし、セクションコードとサイズ、残りの入力を取得
-3. セクションサイズ分のバイト列を残りの入力から更に取得する
-    - `take()`は指定したサイズ分だけ、入力を読み取る関数
-    - 読み取ったバイト列は`section_contents`、残りは`rest`
-4. 各種セクションのデコード処理を記述する
-5. 残りの入力`rest`を次のループで使うため、`remaining`に再代入
+1. Repeat steps ② to ⑤ until the input `remaining` is empty.
+2. Decode the section header to obtain the section code, size, and remaining input.
+3. Retrieve a byte sequence of the section size from the remaining input.
+    - `take()` is a function that reads a specified amount of input.
+    - The read byte sequence is `section_contents`, and the remaining is `rest`.
+4. Describe the decoding process for various sections.
+5. Reassign `remaining` to `rest` to use it in the next loop.
 
-やっていることはシンプルだが、最初は分かりづらいと思うので、バイナリ構造をもとに上記の②~⑤の処理を考えてみよう。
+The task is simple, but it may be difficult to understand at first, so let's consider processing steps 2 to 5 above based on the binary structure.
 
-まず`Type Section`と`Function Section`のバイナリ構造体の部分を抜き出すと次のとおりである。
+First, when extracting the binary structure parts of the `Type Section` and `Function Section`, it looks like this:
 
 ```
 ; section "Type" (1)
@@ -233,41 +227,40 @@ src/binary/module.rs
 ...
 ```
 
-1の時点では`remaining`は次のようになっている。
+At step 1, `remaining` looks like this:
 
 | remaining                                                       |
 |-----------------------------------------------------------------|
 | [0x01, 0x04, 0x01, 0x60, 0x0, 0x0, 0x03, 0x02, 0x01, 0x00, ...] |
 
 
-2が終わった時点で、`input`などが次のようになっている。
+After step 2, `input` and others look like this:
 
 | section code | section size | input                                               |
 |--------------|--------------|-----------------------------------------------------|
 | 0x01         | 0x04         | [0x01, 0x60, 0x0, 0x0, 0x03, 0x02, 0x01, 0x00, ...] |
 
-3が終わった時点で`rest`と`section_contents`は次のようになっている。
+After step 3, `rest` and `section_contents` look like this:
 
 | section_contents       | rest                          |
 |------------------------|-------------------------------|
 | [0x01, 0x60, 0x0, 0x0] | [0x03, 0x02, 0x01, 0x00, ...] |
 
-4では`section_contents`を更にデコードしていく。
+In step 4, further decoding is done on `section_contents`.
 
-5では`remaining`に`rest`の値が入る、この時点で`remaining`が次のセクションの入力になる。
+In step 5, the value of `rest` is assigned to `remaining`, making `remaining` the input for the next section at this point.
 
 | remaining                     |
 |-------------------------------|
 | [0x03, 0x02, 0x01, 0x00, ...] |
 
-このように、繰り返し入力を消費して各セクションをデコードしていく。
-理解してしまえばシンプルだが、理解するまでは繰り返し本節の説明を読み直したり、読者自身で書いてみたりすると良いと思う。
+In this way, input is consumed repeatedly to decode each section. Once you understand it, it's simple, but until then, it's good to reread the explanation in this section repeatedly or try writing it yourself.
 
-### `Type Section`のデコード
-骨組みができたので、続けて`Type Section`のデコード処理を実装していく。
-`Type Section`は関数シグネチャ情報を持つセクションで、シグネチャは引数と戻り値の組み合わせである。
+### Decoding the `Type Section`
+Now that the framework is set up, let's proceed to implement the decoding process for the `Type Section`.
+The `Type Section` is a section that contains function signature information, where a signature consists of combinations of arguments and return values.
 
-バイナリ構造は次のとおり。
+The binary structure is as follows:
 
 ```
 ; section "Type" (1)
@@ -280,7 +273,7 @@ src/binary/module.rs
 000000d: 00               ; num results
 ```
 
-まずは`src/binary/types.rs`ファイルを作って、シグネチャの構造体を定義していく。
+First, create the `src/binary/types.rs` file and define the structure of the signature.
 
 src/binary/types.rs
 ```rust
@@ -313,17 +306,16 @@ impl From<u8> for ValueType {
 +pub mod types;
 ```
 
-`ValueType`は引数の型を表現している。
-今回は定義した関数に引数がないためバイナリ構造には型情報が出てこないが、`0x7F`なら`i32`、`0x7E`なら`i64`という仕様になっている。
+`ValueType` represents the type of arguments.
+In this case, since the defined function has no arguments, there is no type information in the binary structure, but according to the specification, `0x7F` represents `i32` and `0x7E` represents `i64`.
 
 <div class="warning">
 
-`Wasm Spec`では`i32`、`i64`、`f32`、`f64`の4つの値が定義されているが、
-今回は`i32`と`i64`があれば良いので`ValueType`はその2つのみ実装する
+In the `Wasm Spec`, 4 values are defined: `i32`, `i64`, `f32`, `f64`, but for this case, only `i32` and `i64` are needed, so we will implement only those two in `ValueType`.
 
 </div>
 
-続けて、`Module`構造体に`type_section`フィールドを追加するのと`todo!()`を実装していく。
+Next, add the `type_section` field to the `Module` struct and start implementing `todo!()`.
 
 src/binary/module.rs
 ```diff
@@ -372,8 +364,8 @@ src/binary/module.rs
                      };
 ```
 
-`decode_type_section()`は実際に`Type Section`のデコード処理をしている関数だが、少し複雑になってくるので、ひとまず固定のデータを返すようにする。
-引数と戻り値のデコードと合わせて次章で実装する。
+`decode_type_section()` is the function that actually decodes the `Type Section`, but it becomes a bit complex, so for now, let's make it return fixed data.
+We will implement argument and return value decoding along with the next chapter.
 
 src/binary/module.rs
 ```diff
@@ -394,10 +386,10 @@ src/binary/module.rs
      use crate::binary::module::Module;
 ```
 
-### `Function Section`のデコード
-`Function Section`はWasmバイナリの構造の章で説明をしたとおり、関数のシグネチャ情報(`Type Section`)を紐付けるための領域である。
+### Decoding the `Function Section`
+The `Function Section` is an area in the chapter on the structure of Wasm binaries that links to the signature information of functions (the `Type Section`).
 
-バイナリ構造は次のとおり。
+The binary structure is as follows:
 
 ```
 ; section "Function" (3)
@@ -407,7 +399,7 @@ src/binary/module.rs
 0000011: 00               ; function 0 signature index
 ```
 
-これをデコードしていくので、まずは`Module`に`function_section`を追加する。
+To decode this, first add the `function_section` to the `Module`.
 
 src/binary/module.rs
 ```diff
@@ -439,18 +431,18 @@ src/binary/module.rs
                      };
 ```
 
-`Function Section`は単に`Type Section`と`Code Section`を紐付けるためのインデックス情報を持っているだけなので、Rustでは`Vec<u32>`で表現する。
+The `Function Section` simply holds index information to link the `Type Section` and `Code Section`, so in Rust, it is represented as `Vec<u32>`.
 
-続けて、`decode_function_section()`を次のように実装する。
-`decode_type_section()`が呼ばれる時点の`input`は次のようになっている。
-`num functions`は関数の個数を表していて、この数だけインデックスの値を読み取っていく。
+Next, implement `decode_function_section()` as follows.
+At the point where `decode_type_section()` is called, the `input` looks like this:
+`num functions` represents the number of functions, and we read the index values this many times.
 
 ```
 0000010: 01               ; num functions
 0000011: 00               ; function 0 signature index
 ```
 
-実装は次のようになる。
+The implementation will be as follows:
 
 src/binary/module.rs
 ```diff
@@ -476,16 +468,16 @@ src/binary/module.rs
      use crate::binary::module::Module;
 ```
 
-1は`num functions`を読み取り、2はその値の回数だけインデックスの値を繰り返し読み取っている。
+Here, 1 reads `num functions`, and 2 reads the index values that many times.
 
-### `Code Section`のデコード
-`Code Section`は関数の情報が保存されている領域。
-関数の情報は次の2つから構成されている。
+### Decoding the `Code Section`
+The `Code Section` is the area where function information is stored.
+Function information consists of two parts:
 
-- ローカル変数の個数と型情報
-- 命令列
+- Number and type information of local variables
+- Instruction sequence
 
-これをRustで表現すると、次のようになる。
+In Rust, this is represented as follows:
 
 ```rust
 // 関数の定義
@@ -508,9 +500,9 @@ pub enum Instruction {
 }
 ```
 
-バイナリ構造は次のとおり。
-何もしない関数の場合、ローカル変数はなし、命令も`end`命令の1つだけとなっている。
-`end`命令は関数の終わりを意味していて、何もしない関数でも`end`は必ず1つあるという仕様となっている。
+The binary structure is as follows:
+For a function that does nothing, there are no local variables, and only one `end` instruction.
+The `end` instruction signifies the end of a function, and even for a function that does nothing, there must always be one `end` instruction.
 
 ```
 ; section "Code" (10)
@@ -523,7 +515,7 @@ pub enum Instruction {
 0000017: 0b               ; end
 ```
 
-まず`src/binary/instruction.rs`ファイルを作成してそこに命令を定義していく。
+First, create the `src/binary/instruction.rs` file and define the instructions there.
 
 src/binary/instruction.rs
 ```rust
@@ -541,7 +533,7 @@ src/binary.rs
  pub mod types;
 ```
 
-続けて、ローカル変数の情報を表す`FunctionLocal`を定義していく。
+Next, define `FunctionLocal` to represent information about local variables.
 
 src/binary/types.rs
 ```diff
@@ -557,7 +549,7 @@ src/binary/types.rs
 +}
 ```
 
-続けて、関数を表す`Function`を定義していく。
+Continuing, define `Function` to represent a function.
 
 src/binary/section.rs
 ```diff
@@ -577,8 +569,8 @@ src/binary/section.rs
 +}
 ```
 
-続けてデコード処理を実装していきたいが、少し複雑になってくるので現時点ではまずテストを通せる固定のデータ構造を返すようにする。
-デコード実装は次章で実装していく。
+We would like to implement the decoding process next, but it becomes a bit complex, so for now, let's return a fixed data structure that passes the tests.
+We will implement the decoding process in the next chapter.
 
 src/binary/module.rs
 ```diff
@@ -637,8 +629,8 @@ src/binary/module.rs
      use crate::binary::module::Module;
 ```
 
-最後にテストを実装して通ることを確認する。
-といってもテストを通すように実装を合わせているだけなので意味は薄いが、次章でちゃんとデコード処理を実装するので今はこれでよい。
+Finally, confirm that the tests pass.
+Although adjusting the implementation to pass the tests may seem trivial, it is fine for now as we will implement the decoding process properly in the next chapter.
 
 src/binary/module.rs
 ```diff
@@ -679,7 +671,7 @@ src/binary/module.rs
  }
 ```
 
-テストを実行すると通っていることが分かる。
+Running the tests confirms that they pass.
 
 ```sh
 running 2 tests
@@ -689,8 +681,8 @@ test binary::module::tests::decode_simplest_func ... ok
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-## まとめ
-一部TODOが残っているが、本章では関数デコードの実装を解説した。
-大枠はこれで把握できたのではないかと思うので、次章は関数の引数、戻り値のデコードと合わせてTODOの部分の実装について解説していく。
+## Summary
+While there are some TODOs remaining, this chapter explained the implementation of function decoding.
+You should now have a good understanding of the overall process, and in the next chapter, we will explain the implementation of decoding function arguments and return values, along with addressing the remaining TODOs.
 
-[^1]: 任意の大きさの数値を少ないバイト数で格納するための可変長符号圧縮の方式
+[^1]: A variable-length code compression method for storing numbers of arbitrary size in a small number of bytes.

@@ -1,54 +1,53 @@
 ---
-Wasm入門
+Introduction to Wasm
 ---
 
-本章はWAT（WebAssembly Text Format）というWasmバイナリへコンパイルできる言語を使って、実際にWasmを動かすことを体験していく。
+This chapter will use a language that can be compiled into Wasm binary called WAT (WebAssembly Text Format) to experience running Wasm in practice.
 
-なお、WATの解説はMDNの[WebAssembly テキスト形式の理解](https://developer.mozilla.org/en-US/docs/WebAssembly/Understanding_the_text_format)にとてもわかり易く書かれているので、詳細な説明はそちらを参照してほしい。
-「はじめての関数本体」までをひととおり理解できれば、基本的に本章以降の説明で困ることはないと思う。
+For a detailed explanation of WAT, refer to the very clear explanation in MDN's [Understanding the text format of WebAssembly](https://developer.mozilla.org/en-US/docs/WebAssembly/Understanding_the_text_format). Once you have a good understanding up to "First Function Body," you should generally have no trouble following the explanations in the rest of this chapter.
 
-## 環境
-本書は次の環境を使って解説していく。
+## Environment
+This document will explain using the following environment:
 
 - OS: macOS Ventura
-- CPU: Apple M1 Pro（ARM64）
+- CPU: Apple M1 Pro (ARM64)
 
-## 事前準備
+## Prerequisites
 
-### wabtのインストール
-まず最初に、[wabt](https://github.com/WebAssembly/wabt)というツール群をインストールする。
-次にmacOSでHomebrewを使ったインストール手順を示すが、macOS以外のインストール方法はリポジトリを参照してほしい。
+### Installing wabt
+First, install a toolset called [wabt](https://github.com/WebAssembly/wabt).
+Below are the installation steps using Homebrew on macOS, but for installation methods on platforms other than macOS, please refer to the repository.
 
 ```sh
 $ brew install wabt
 ```
 
-本章ではWATをWasmバイナリに変換する`wat2wasm`を使う。
-執筆時点のバージョンは次のとおり。
+In this chapter, we will use `wat2wasm` to convert WAT to Wasm binary.
+The version at the time of writing is as follows.
 
 ```sh
 $ wat2wasm --version
 1.0.33
 ```
 
-### Wasmtimeのインストール
-コンパイルされたWasmバイナリを実行するため、Wasmtimeをインストールする。
-次にmacOSとLinuxのインストール手順を示すが、Windowsでのインストール方法は[公式ドキュメント](https://docs.wasmtime.dev/cli-install.html#installing-wasmtime)を参照してほしい。
+### Installing Wasmtime
+To execute compiled Wasm binaries, install Wasmtime.
+Below are the installation steps for macOS and Linux, but for installation on Windows, please refer to the [official documentation](https://docs.wasmtime.dev/cli-install.html#installing-wasmtime).
 
 ```sh
 $ curl https://wasmtime.dev/install.sh -sSf | bash
 ```
 
-執筆時点のバージョンは次のとおり。
+The version at the time of writing is as follows.
 
 ```sh
 $ wasmtime --version
 wasmtime-cli 12.0.1
 ```
 
-## Wasmバイナリを実行してみる
-まず`add.wat`ファイルを作って、次のコードを貼り付ける。
-このコードは2つの引数を受け取って加算した結果を返す処理を行っている関数となっている。
+## Trying to Execute a Wasm Binary
+First, create an `add.wat` file and paste the following code.
+This code defines a function that takes two arguments and returns the result of their addition.
 
 ```wabt
 (module
@@ -60,26 +59,25 @@ wasmtime-cli 12.0.1
 )
 ```
 
-次に`wat2wasm`を使ってWasmバイナリを出力して、`wasmtime`を使って実行する。
-`wat2wasm`は`WAT`をWasmバイナリにコンパイルしてくれるCLIである。
+Next, use `wat2wasm` to output the Wasm binary and execute it using `wasmtime`.
+`wat2wasm` is a CLI that compiles `WAT` to Wasm binary.
 
 ```sh
-# コンパイル
+# Compile
 $ wat2wasm add.wat      
-# Wasmバイナリが出力されていることを確認する
 $ ls
  add.wasm
  add.wat
-# wasmtime を使って関数を実行する
+# Execute function
 $ wasmtime add.wasm --invoke add 1 2
 warning: using `--invoke` with a function that takes arguments is experimental and may break in the future
 warning: using `--invoke` with a function that returns values is experimental and may break in the future
 3
 ```
 
-## スタックマシンの補足
-MDNでもスタックマシンについて説明があったが、少し足りないと感じたので補足する。
-まず、さきほど使ったコードの命令リストを見ると次のようになっている。
+## Supplement on Stack Machine
+Although MDN explains the stack machine, I felt it was slightly lacking, so here is a supplement.
+Looking at the instruction list of the code we used earlier, it appears as follows:
 
 ```wat
 (local.get $a)
@@ -87,18 +85,18 @@ MDNでもスタックマシンについて説明があったが、少し足り�
 i32.add
 ```
 
-これは`local.get`は引数の値をスタックにpush、`i32.add`はスタックから値を2つpopして加算した結果をまたスタックにpushする、という処理を行っている。
-そして関数が呼び出し元に戻るとき、戻り値がある場合はスタックから値をpopする。
+Here, `local.get` pushes the value of the argument onto the stack, and `i32.add` pops two values from the stack, adds them, and pushes the result back onto the stack.
+When the function returns to the caller, if there is a return value, it is popped from the stack.
 
-これをRustの擬似コードで示すと、次のような感じになる。
+In pseudo-Rust code, this would look something like:
 
 ```rust
-// 処理する値を保存するスタック
+// Stack to store values to process
 let mut stack: Vec<i32> = vec![];
-// 関数のローカル変数を保持する領域
+// Area to hold function local variables
 let mut locals: Vec<i32> = vec![];
 
-// 命令を処理するループ
+// A loop that processes instructions
 loop {
     let instruction = fetch_inst();
 
@@ -119,16 +117,17 @@ loop {
 return stack.pop();
 ```
 
-このように、Wasm Runtimeはスタックマシンを使って値を計算しているというすごくシンプルなことをやっている。
+In this way, the Wasm Runtime performs very simple calculations using a stack machine.
 
 <div class="warning">
 
-実際の実装はもっと複雑だが、本質的には上記のようなことを繰り返し処理している。
+The actual implementation is more complex, but fundamentally, it repeats the process as described above.
 
 </div>
 
-## まとめ
-本章では軽くWasmを動かしてみつつ、擬似コードで少し実装についても触れた。
-WATについて、ほとんどの説明をMDNに丸投げしているが、筆者が書くより遥かにわかりやすいので分からない場合はぜひそちらを繰り返し読み直してみてほしい。
+## Summary
+In this chapter, we briefly ran Wasm and touched on the implementation using pseudo code.
+While most explanations about WAT are deferred to MDN, which is much clearer than what the author could write, if you are unsure, please revisit it repeatedly.
 
-次章はWasm Runtimeを実装する前準備として、Wasmバイナリの構造について解説していく。
+The next chapter will explain the structure of Wasm binaries as preparation before implementing the Wasm Runtime.
+

@@ -1,9 +1,9 @@
 ---
-Runtimeの実装 ~ 関数の実行まで ~
+Implementation of Runtime ~ Up to Function Execution ~
 ---
 
-本章では次のWATを実行できるようRuntimeを実装していく。
-実装できた段階では簡単な足し算ができる`Wasm Runtime`が出来上がる。
+In this chapter, we will implement a Runtime to execute the following WAT.
+Once implemented, a `Wasm Runtime` capable of simple addition will be created.
 
 ```wat
 (module
@@ -15,25 +15,25 @@ Runtimeの実装 ~ 関数の実行まで ~
 )
 ```
 
-処理の流れは大きく分けると次のようになる。
+The processing flow can be broadly divided as follows:
 
-1. `binary::Module`を使って`execution::Store`を生成する
-2. `execution::Store`を使って`execution::Runtime`を生成する
-3. `execution::Runtime::call(...)`で関数を実行する
+1. Generate an `execution::Store` using `binary::Module`
+2. Generate an `execution::Runtime` using the `execution::Store`
+3. Execute a function using `execution::Runtime::call(...)`
 
-## 値の実装
+## Implementation of Values
 
-今回実装するWasm Runtimeでは次の2種類の値を扱うのでそれらを実装していく。
+The Wasm Runtime we are implementing this time will handle the following two types of values, so let's implement them.
 
 - i32
 - i64
 
-まずは`src`配下に次のファイルを作成する。
+First, create the following files under `src`.
 
 - `src/execution/value.rs`
 - `src/execution.rs`
 
-それぞれ次のように実装する。
+Implement them as follows.
 
 src/execution/value.rs
 ```rust
@@ -83,18 +83,18 @@ index 96eab66..ec63376 100644
 +pub mod execution;
 ```
 
-`i32`と`i64`は異なる型なので、スタックでまとめて扱うことができない。
-そのため`Value`というEnumを用意してスタックで扱えるようしている。
+Since `i32` and `i64` are different types, they cannot be handled together on the stack.
+Therefore, we provide an Enum called `Value` to handle them on the stack.
 
-また`Value`同士を足し算できるように`std::ops::Add`を実装している。
+Additionally, we implement `std::ops::Add` to allow adding `Value` instances together.
 
-## `Store`の実装
+## Implementation of `Store`
 
-[`Store`](https://www.w3.org/TR/wasm-core-1/#store%E2%91%A0)は`Wasm Runtime`が実行時に持つ状態を保持するための構造体である。
-仕様書ではメモリやインポート、関数などの情報を持つと定義されていて、これらの情報を使って命令の処理をしていく。
-`Wasm`バイナリがクラスだとしたら、`Store`はそのクラスのインスタンスと考えることができる。
+[`Store`](https://www.w3.org/TR/wasm-core-1/#store%E2%91%A0) is a struct that holds the state of the `Wasm Runtime` during execution.
+As defined in the specification, it holds information such as memory, imports, and functions, which are used to process instructions.
+If a `Wasm` binary is considered a class, then `Store` can be thought of as an instance of that class.
 
-現時点では関数の情報を持っていれば良いので、次のファイルを作成して`Store`を実装する。
+At this point, it is sufficient to have information about functions, so create the following file to implement `Store`.
 
 src/execution/store.rs
 ```rust
@@ -126,16 +126,16 @@ pub struct Store {
 }
 ```
 
-`FuncInst`は`Wasm Runtime`が実際に処理する関数の実体となっている。
-関数はインポートした関数とWasmバイナリが持つ関数がある。
-今回はインポートした関数を使わないので、まずWasmバイナリが持つ関数を表現した`InternalFuncInst`を実装する。
+`FuncInst` represents the actual function processed by the `Wasm Runtime`.
+There are imported functions and functions provided by the Wasm binary.
+Since we are not using imported functions this time, we will first implement `InternalFuncInst` representing functions provided by the Wasm binary.
 
-`InternalFuncInst`のフィールドはそれぞれ次のようになっている。
+The fields of `InternalFuncInst` are as follows:
 
-- `func_type`: 関数のシグネチャ（引数と戻り値）情報
-- `code`: 関数のローカル変数の定義と命令列を持つ`Func`型
+- `func_type`: Information about the function's signature (arguments and return values)
+- `code`: A `Func` type that holds the function's local variable definitions and instruction sequences
 
-次に、`binary::Module`を受け取り`Store`を生成する関数を実装する。
+Next, implement a function that takes a `binary::Module` and generates a `Store`.
 
 src/execution/store.rs
 ```diff
@@ -200,16 +200,16 @@ index e488383..5b4e467 100644
 +}
 ```
 
-実装で使用する各種セクションはそれぞれ次のデータを持っている。
+Each section used in the implementation contains the following data:
 
-| セクション         | 概要                                 |
-|--------------------|--------------------------------------|
-| `Type Section`     | 関数シグネチャの情報                 |
-| `Code Section`     | 関数ごとの命令などの情報             |
-| `Function Section` | 関数シグネチャへの参照情報           |
+| Section            | Description                         |
+|--------------------|-------------------------------------|
+| `Type Section`     | Information about function signatures|
+| `Code Section`     | Information about instructions for each function|
+| `Function Section` | Reference information to function signatures|
 
-現時点の`Store::new()`でやっていることを簡潔に説明すると、各セクションに散らばっている関数を実行する際に必要な情報を集めている。
-少し分かりづらいと思うので、次の`func_add.wat`の`binary::Module`をみていこう。
+To briefly explain what `Store::new()` is doing at this point, it is collecting the necessary information for executing functions scattered across each section.
+It might be a bit confusing, so let's take a look at the `func_add.wat` and its `binary::Module`.
 
 ```rust
 Module {
@@ -231,21 +231,21 @@ Module {
 }
 ```
 
-`code_section[0]`の関数がどんなシグネチャを持っているかを知るには`function_section[0]`の値を取得する必要がある。
-その値は`type_section`のインデックスになっているので、そのまま`type_section[0]`が`code_section[0]`のシグネチャ情報になる。
-例えば`function_section[0]`の値が1だった場合、`type_section[1]`が`code_section[0]`のシグネチャ情報になる。
+To know what signature the function in `code_section[0]` has, you need to retrieve the value of `function_section[0`.
+This value corresponds to the index in `type_section`, so `type_section[0]` directly provides the signature information for `code_section[0`.
+For example, if the value of `function_section[0]` is 1, then `type_section[1]` contains the signature information for `code_section[0`.
 
-## `Runtime`の実装
+## Implementation of `Runtime`
 
-`Runtime`は`Wasm Runtime`そのもので、次の情報を持つ構造体となっている。
+`Runtime` is the `Wasm Runtime` itself, which is a structure that holds the following information:
 
 - `Store`
-- スタック
-- コールスタック
+- Stack
+- Call stack
 
-前章ではスタックとコールスタックについて解説したので、それをどのように実装して使うのかについて解説していく。
+In the previous chapter, we explained about the stack and call stack, so now we will explain how to implement and use them.
 
-まず`src/execution/runtime.rs`を追加して`Runtime`と`Frame`などを定義する。
+First, add `src/execution/runtime.rs` to define `Runtime` and `Frame`.
 
 ```rust
 use super::{store::Store, value::Value};
@@ -292,11 +292,11 @@ index 1a50587..acbafa4 100644
  pub mod value;
 ```
 
-`Runtime::instantiate(...)`はWasmバイナリを受け取り`Runtime`を生成する関数である。
+`Runtime::instantiate(...)` is a function that takes a Wasm binary and generates a `Runtime`.
 
-### 命令処理の実装
+### Implementation of Instruction Processing
 
-次に、命令を実行する`Runtime::execute(...)`を実装する。
+Next, implement `Runtime::execute(...)` to execute instructions.
 
 src/execution/runtime.rs
 ```diff
@@ -344,16 +344,16 @@ index c45d764..9db8415 100644
  }
 ```
 
-`execute(...)`がプログラムカウンタが指す命令がなくなるまでループで次のことを行っている。
+The `execute(...)` method loops until there are no more instructions pointed to by the program counter.
 
-1. コールスタックの一番上にあるフレームを取得する  
-2. pc（プログラムカウンタ）をインクリメントして、次の命令をフレームから取得する  
-3. 命令ごとの処理  
-   `i32.add`という命令の場合は、スタックから値を2つ`pop`して、それらを足した結果をスタックに`push`する
+1. Get the top frame from the call stack.
+2. Increment the program counter (pc) and get the next instruction from the frame.
+3. Process each instruction:
+   For an instruction like `i32.add`, pop two values from the stack, add them, and push the result back onto the stack.
 
-やっていることは前の章で示した擬似コードとほぼ同じである。
+The process is almost the same as the pseudocode shown in the previous chapter.
 
-続けて`local.get`と`end`命令も実装する。
+Next, implement the `local.get` and `end` instructions.
 
 src/execution/runtime.rs
 ```diff
@@ -376,8 +376,8 @@ index 6d090e9..5bae7fb 100644
                          bail!("not found any value in the stack");
 ```
 
-`local.get`命令はローカル変数の値を取得してスタックに`push`する命令である。
-`local.get`はオペランドを持っていて、これはどのローカル変数の値を取得するかを示す値で`frame.locals`のインデックス値である。
+The `local.get` instruction retrieves the value of a local variable and pushes it onto the stack.
+`local.get` has an operand that indicates which local variable's value to retrieve, using the index value in `frame.locals`.
 
 src/execution/runtime.rs
 ```diff
@@ -418,16 +418,16 @@ index 5bae7fb..ceaf3dc 100644
 +}
 ```
 
-`end`命令は関数の実行終了を意味をしていて、この命令の場合は次の処理を行っている。
+The `end` instruction signifies the end of function execution and performs the following steps:
 
-1. コールスタックからフレームを`pop`する
-2. フレーム情報から`sp`（スタックポインタ）と`arity`（戻り値の数）を取得
-3. スタックを巻き戻す
-   1. 戻り値がある場合、スタックから値を1つ`pop`してから`sp`までスタックを巻き戻す
-   2. `pop`した値をスタックに`push`する
-   3. 戻り値がない場合は単純に`sp`までスタックを巻き戻す
+1. Pop the frame from the call stack.
+2. Retrieve the stack pointer (sp) and arity (number of return values) from the frame information.
+3. Rewind the stack:
+   - If there are return values, pop one value from the stack and rewind the stack to sp.
+   - Push the popped value back onto the stack.
+   - If there are no return values, simply rewind the stack to sp.
 
-`Runtime::execute(...)`のベース実装はこれで終わりなので、次に命令実行の前と後処理をする`Runtime::invoke_internal(...)`を実装する。
+With the base implementation of `Runtime::execute(...)` complete, the next step is to implement `Runtime::invoke_internal(...)` for pre and post-processing of instruction execution.
 
 src/execution/runtime.rs
 ```diff
@@ -504,17 +504,17 @@ index ceaf3dc..3356b37 100644
  pub fn stack_unwind(stack: &mut Vec<Value>, sp: usize, arity: usize) -> Result<()> {
 ```
 
-`Runtime::invoke_internal(...)`では次のことをやっている。
+In `Runtime::invoke_internal(...)`, the following steps are performed:
 
-1. 関数の引数の数を取得
-2. 引数の数だけスタックから値を`pop`する
-3. ローカル変数を初期化
-4. 関数の戻り値の数を取得
-5. フレームを作成して、`Runtime::call_stack`に`push`する
-6. `Runtime::execute()`を呼び出し関数を実行する
-7. 戻り値がある場合はスタックから`pop`して返す、ない場合は`None`を返す
+1. Get the number of function arguments.
+2. Pop values from the stack for each argument.
+3. Initialize local variables.
+4. Get the number of function return values.
+5. Create a frame and push it onto `Runtime::call_stack`.
+6. Call `Runtime::execute()` to execute the function.
+7. If there are return values, pop them from the stack and return them; otherwise, return `None`.
 
-続けて`Runtime::invoke_internal(...)`を呼び出す`Runtime::call(...)`を実装して、呼び出す関数の指定と関数の引数を渡せるようにする。
+Next, implement `Runtime::call(...)` which calls `Runtime::invoke_internal(...)` and allows specifying the function to call and passing function arguments.
 
 src/execution/runtime.rs
 ```diff
@@ -550,14 +550,15 @@ index 3356b37..7cba836 100644
          let mut locals = self.stack.split_off(bottom);
 ```
 
-`Runtime::call(...)`では次の処理を行っている。
+In `Runtime::call(...)`, the following steps are performed:
 
-1. 指定されたインデックスを使って`Store`が持っている`InternalFuncInst`（関数の実体）を取得
-2. 引数をスタックに`push`
-3. 1で取得した`InternalFuncInst`を`Runtime::invoke_internal(...)`に渡して実行して、結果を返す
+1. Get the `InternalFuncInst` (function entity) held by `Store` using the specified index.
+2. Push arguments onto the stack.
+3. Pass the `InternalFuncInst` obtained in step 1 to `Runtime::invoke_internal(...)` for execution and return the result.
 
-これで足し算の関数を実行できる`Wasm Runtime`ができたので、
-最後にテストを書いて正しく動くことを確認する。
+With this, a `Wasm Runtime` capable of executing addition functions has been created. Finally, write tests to ensure it functions correctly. 
+
+{/*examples*/}
 
 src/execution/runtime.rs
 ```diff
@@ -592,7 +593,7 @@ index 7cba836..7fa35d2 100644
 +}
 ```
 
-問題なければ次のとおり、テストが通る。
+If there are no issues, the test should pass as follows.
 
 ```sh
 running 6 tests
@@ -604,6 +605,7 @@ test binary::module::tests::decode_func_add ... ok
 test execution::runtime::tests::execute_i32_add ... ok
 ```
 
-## まとめ
-本章では足し算ができる`Runtime`を実装して動いたところまで確認できた。
-これで雛形ができたので次章以降はさらに拡張して、関数の呼び出しを実装していく。
+## Summary
+In this chapter, we implemented a `Runtime` that can perform addition and confirmed that it works. Now that the template is ready, we will further expand in the next chapters and implement function calls. 
+
+

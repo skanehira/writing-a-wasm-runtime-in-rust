@@ -1,23 +1,23 @@
 ---
-関数の実行の仕組み
+Mechanism of Function Execution
 ---
 
-関数を実行するということは関数が持つ命令をループで処理していくということになる。
-本章ではWasm Runtimeがどのように関数を処理するかについて解説していく。
+Executing a function means processing the instructions the function holds in a loop.
+In this chapter, we will explain how the Wasm Runtime processes functions.
 
-## 命令の実行
+## Execution of Instructions
 
-Wasm Runtimeでは命令の実行は、大きく分けると次のステップがある。
+In Wasm Runtime, the execution of instructions can be broadly divided into the following steps:
 
-1. プログラムカウンタを使って命令を取得
-2. 取得した命令を処理
-    - このステップではスタックやローカル変数等の操作も行う
-3. プログラムカウンタをカウントアップ
+1. Fetching instructions using the program counter
+2. Processing the fetched instructions
+    - In this step, operations on the stack, local variables, etc., are also performed
+3. Incrementing the program counter
 
-プログラムカウンタは次に実行する命令の番地を指す値のこと。
-Wasm Runtimeでは命令は配列となっているので、プログラムカウンタは配列のインデックスの値となる。
+The program counter refers to the value that points to the address of the next instruction to be executed.
+In Wasm Runtime, instructions are represented as an array, so the program counter becomes the value of the array index.
 
-これを疑似コードで示すと次のようになる。
+Representing this in pseudocode would look like the following.
 
 ```rust
 let instructions = vec![...];      // 命令列
@@ -40,19 +40,19 @@ loop {
 }
 ```
 
-## フレーム
+## Frame
 
-フレームは関数の実行に必要な次の情報を持つデータ構造のこと。
-各種項目の概要については後述する。
+A frame is a data structure that holds the necessary information for the execution of a function.
+Details about various items will be discussed later.
 
-- プログラムカウンタ（pc）
-- スタックポインタ（sp）
-- 命令列（instructions）
-- 戻り値の個数（arity）
-- 引数・ローカル変数（locals）
+- Program counter (pc)
+- Stack pointer (sp)
+- Instruction sequence (instructions)
+- Number of return values (arity)
+- Arguments and local variables (locals)
 
-関数を実行するときはフレームを作成して、これらの情報を元に処理していく。
-今回実装するWasm Runtimeではフレームを次のように表現している。
+When executing a function, a frame is created, and processing is done based on this information.
+In the Wasm Runtime implementation we are working on, frames are represented as follows.
 
 ```rust
 #[derive(Default)]
@@ -65,48 +65,48 @@ pub struct Frame {
 }
 ```
 
-## コールスタック
+## Call Stack
 
-フレームを保持するためのスタック領域のこと。
-関数を実行するときにフレームを作成して、それをコールスタックに`push`する。
-関数の実行が終わるとコールスタックから`pop`される。
+The stack area that holds frames.
+When executing a function, a frame is created and pushed onto the call stack.
+Once the function execution is complete, it is popped from the call stack.
 
-コールスタックとフレーム、命令実行の関係性を図に示すと次のとおりである。
-プログラムカウンタと命令列は命令フェッチ時に使用され、それ以外の情報は命令を処理する時に使われる。
+The relationship between the call stack, frames, and instruction execution can be illustrated as follows.
+The program counter and instruction sequence are used during instruction fetching, while the other information is used during instruction processing.
 
 ![](./images/about_execution.drawio.png)
 
-## スタックポインタ
+## Stack Pointer
 
-コールスタックは関数を実行するたびに積まれるが、スタックは常にひとつである。
-そのため、関数間では共通のスタック領域を使うことになる。
+The call stack is stacked each time a function is executed, but there is always only one stack.
+Therefore, a common stack area is used between functions.
 
-共通の領域のため、関数実行が終わったタイミングでスタックを巻き戻す必要がある。
+Since it is a common area, it is necessary to rewind the stack when a function execution is completed.
 
-例えばスタックに値を積む処理を持つ`func1`と`func2`があるとする。
-`func1`の処理中に`func2`を呼び出す場合、`func2`の処理中に値がスタックに積まれた状態で`func2`の処理が終わり、`func1`の処理に戻るときスタックに`func2`で積んだ値が残ったままになってしまう。
-そのため、`func1`が`func2`を呼び出した時点のスタック状態に巻き戻す必要がある。
-その際にスタックをどこまで巻き戻すかの情報が必要で、それがスタックポインタである。
+For example, if there are functions `func1` and `func2` that have processes to push values onto the stack.
+When `func1` calls `func2` during its execution, and `func2` finishes its execution with values pushed onto the stack, when returning to `func1`, the values pushed by `func2` remain on the stack.
+Therefore, it is necessary to rewind the stack to the state it was in when `func1` called `func2`.
+The stack pointer is the information needed to know how far to rewind the stack.
 
-## 引数・ローカル変数
+## Arguments and Local Variables
 
-Wasmの関数は引数とローカル変数を持つことができる。
-引数は実質ローカル変数なので、フレームの`locals`に保存することになる。
+Wasm functions can have arguments and local variables.
+Since arguments are essentially local variables, they are saved in the `locals` of the frame.
 
-関数から関数を呼び出す際に、引数をどのように関数にわたすかについて少し解説する。
-まず、関数を実行する前にフレームを作成するが、引数を受け取る関数がある場合はスタックから引数を`pop`して、`locals`に`push`する。
+When calling a function from another function, let's briefly explain how arguments are passed to the function.
+Before executing a function, a frame is created. If there are functions that receive arguments, the arguments are `pop`ed from the stack and `push`ed into `locals`.
 
-これにより、関数を実行する際にローカル変数を使えるようになる。
+This allows the use of local variables when executing the function.
 
-## 戻り値の個数
+## Number of Return Values
 
-Wasmの関数は戻り値を返すことができる。
-関数の実行が終わってスタックが巻き戻されるときに、戻り値がある場合は先にスタックから値を`pop`してから巻き戻す。
-その後、`pop`した値をスタックに`push`する。
+Wasm functions can return values.
+When the function execution is completed and the stack is rewound, if there are return values, they are `pop`ed from the stack first before rewinding.
+After that, the `pop`ed values are `push`ed back onto the stack.
 
-これにより、関数の実行結果がスタックに積まれた状態になり、呼び出し元で続きの処理を行うことができる。
-関数の実行結果がスタックに積まれるということは、`i32.const 1`のようにスタックに`1`を`push`する処理と同等と考えるとイメージしやすいかもしれない。
+This way, the result of the function execution is stacked, allowing the caller to continue processing.
+Thinking of the function execution result being stacked is similar to pushing `1` onto the stack like `i32.const 1`, which might make it easier to visualize.
 
-## まとめ
-Wasmにおける関数の実行の仕組みについて解説した。
-実際に実装してみないと理解できないところもあるので、次章では実際に実装をして理解を深めていく。
+## Summary
+We have explained the mechanism of function execution in Wasm.
+There are aspects that may not be fully understood until implemented, so in the next chapter, we will proceed with the implementation to deepen the understanding.

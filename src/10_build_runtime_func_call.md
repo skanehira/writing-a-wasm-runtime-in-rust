@@ -1,15 +1,15 @@
 ---
-Runtimeの実装 ~ 関数の呼び出しまで ~
+Implementation of Runtime ~ up to function call ~
 ---
 
-本章では前章までの実装を拡張して、以下の機能を実装していく。
+In this chapter, we will extend the implementation from the previous chapter to implement the following features.
 
-- エクスポートした関数のみを実行する
-- 関数を呼び出す
+- Execute only exported functions
+- Call functions
 
-## エクスポートした関数のみを実行する
+## Execute only exported functions
 
-前章ではインデックスで実行する関数を指定していた。
+In the previous chapter, we specified the function to be executed by index.
 
 ```rust
 let args = vec![Value::I32(left), Value::I32(right)];
@@ -17,12 +17,12 @@ let result = runtime.call(0, args)?;
 assert_eq!(result, Some(Value::I32(want)));
 ```
 
-これではバイナリ構造を解析しないと実行したい関数を指定できないので非常に使いづらい。
-また、`Wasm spec`ではエクスポートした関数のみを実行できるという仕様があるが、今の実装は仕様を満たしていない。
-そのため、本節では関数名を指定して関数を実行できるようにする。
+It is very inconvenient because you cannot specify the function you want to execute without analyzing the binary structure.
+Also, according to the `Wasm spec`, it is specified that only exported functions can be executed, but the current implementation does not meet this specification.
+Therefore, in this section, we will enable executing functions by specifying the function name.
 
-### `Export Section`のデコード実装
-`func_add.wat`を次のように修正して、`add`という関数名で関数をエクスポートする。
+### Implementation of decoding the `Export Section`
+Modify `func_add.wat` as follows to export a function named `add`.
 
 src/fixtures/func_add.wat
 ```diff
@@ -39,10 +39,10 @@ index ce14757..99678c4 100644
      i32.add
 ```
 
-`Export Section`のデコードを実装していないため現時点ではテストが失敗するので、それを実装する。
-バイナリ構造に関してはすでに[Wasmバイナリの構造](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure)の章で解説したのでそちらを参照してほしい。
+Since the decoding of the `Export Section` has not been implemented, the test currently fails, so let's implement it.
+Regarding the binary structure, it has already been explained in the chapter [Wasm Binary Structure](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure), so please refer to it.
 
-まずエクスポートを表現した型を定義する。
+First, define the type representing exports.
 
 src/binary/types.rs
 ```diff
@@ -67,12 +67,12 @@ index 7707a97..191c34b 100644
 +}
 ```
 
-`Export::name`はエクスポート名で今回は`add`になる。
-`ExportDesc`は関数やメモリなどの実体への参照となっていて、関数の場合は`Store::funcs`のインデックス値になる。
-たとえば`ExportDesc::Func(0)`の場合、`add`という名前の関数の実態は`Store::funcs[0]`になる。
-本書ではメモリのエクスポートなどは実装しないので、`ExportDesc::Func`のみを実装する。
+`Export::name` is the export name, which will be `add` in this case.
+`ExportDesc` is a reference to the entity such as a function or memory, and for functions, it will be the index value of `Store::funcs`.
+For example, in the case of `ExportDesc::Func(0)`, the entity of the function named `add` will be `Store::funcs[0]`.
+In this book, we will not implement exporting memories, so we will only implement `ExportDesc::Func`.
 
-続けて`Export Section`のデコードを実装する。
+Next, implement the decoding of the `Export Section`.
 
 src/binary/module.rs
 ```diff
@@ -119,20 +119,20 @@ index 5ea23a1..949aea9 100644
      use crate::binary::{
 ```
 
-`decode_export_section(...)`では次のことをやっている。
+In `decode_export_section(...)`, the following steps are performed:
 
-1. エクスポートの要素数を取得  
-   今回は関数1つしかエクスポートしていないので1になる
-2. エクスポート名のバイト列の長さを取得
-3. 2で取得した長さの分だけバイト列を取得
-4. 3で取得したバイト列を文字列に変換する
-5. エクスポートの種類（関数、メモリなど）を取得
-6. エクスポートした関数など実体への参照を取得
-7. `0x00`の場合、エクスポートの種類は関数なので`Export`を生成
-8. 配列に7で生成した`Export`を追加
-9. 2から8を要素数の分だけ繰り返す
+1. Obtain the number of exports
+   In this case, there is only one exported function, so it will be 1.
+2. Obtain the length of the byte sequence for the export name
+3. Obtain the byte sequence for the length obtained in step 2
+4. Convert the byte sequence obtained in step 3 to a string
+5. Obtain the type of export (function, memory, etc.)
+6. Obtain a reference to the entity exported, such as a function
+7. If it is `0x00`, the export type is a function, so generate an `Export`
+8. Add the `Export` generated in step 7 to an array
+9. Repeat steps 2 to 8 for the number of elements
 
-これで`Export Section`のデコードを実装できたので、続けて、`Module`に`export_section`を追加する。
+With this, the decoding of the `Export Section` has been implemented. Next, add `export_section` to `Module` as follows.
 
 src/binary/module.rs
 ```diff
@@ -186,7 +186,7 @@ index d14704f..41c9a89 100644
      use anyhow::Result;
 ```
 
-テストも修正する。
+Also, update the tests.
 
 src/
 ```diff
@@ -207,7 +207,7 @@ index 41c9a89..9ba5afc 100644
          );
 ```
 
-これでテストも通るようになる。
+Now the tests should pass.
 
 ```sh
 running 6 tests
@@ -219,12 +219,12 @@ test execution::runtime::tests::execute_i32_add ... ok
 test binary::module::tests::decode_func_add ... ok
 ```
 
-### 関数実行の実装
+### Implementation of function execution
 
-セクションのデコードができたので次は関数名を指定して実行できるように実装する。
+Now that the section decoding is done, let's implement the ability to execute functions by specifying the function name.
 
-まず、`ExportInst`（エクスポートの情報）を持つ`ModuleInst`を定義する。
-`ModuleInst::exports`を`HashMap`にすることで、関数名から関数のエクスポート情報を簡単に逆引きできるようにする。
+First, define `ModuleInst` that holds `ExportInst` (export information).
+By making `ModuleInst::exports` a `HashMap`, it becomes easy to look up function export information from the function name.
 
 src/execution/store.rs
 ```diff
@@ -266,7 +266,7 @@ index 2cd9821..d103fa0 100644
  impl Store {
 ```
 
-次に`Module::export_section`から`ModuleInst`を生成する。
+Next, generate `ModuleInst` from `Module::export_section`.
 
 src/execution/store.rs
 ```diff
@@ -300,8 +300,9 @@ index d103fa0..3f6ecb2 100644
  }
 ```
 
-続けて`Runtime::call(...)`で関数名を受け取るようにして、`ModuleInst`から関数へのインデックスを取得するように修正する。
-合わせてテストも関数名を渡すようにする。
+```markdown
+Continuing, modify to receive the function name in `Runtime::call(...)` and update to retrieve the index from `ModuleInst` to the function.
+Also, update the tests to pass the function name.
 
 src/execution/runtime.rs
 ```diff
@@ -354,7 +355,7 @@ index 4fe757a..1885646 100644
          Ok(())
 ```
 
-これで、次のとおりテストが通る。
+With this change, the following test will pass.
 
 ```sh
 running 6 tests
@@ -366,7 +367,7 @@ test binary::module::tests::decode_func_add ... ok
 test execution::runtime::tests::execute_i32_add ... ok
 ```
 
-存在しない関数を指定した場合のテストも追加して確認しておく。
+Additionally, add a test for specifying a non-existent function to verify.
 
 src/execution/runtime.rs
 ```diff
@@ -395,13 +396,11 @@ running 1 test
 test execution::runtime::tests::not_found_export_function ... ok
 ```
 
-## 関数を呼び出す実装
+## Implementation of Function Calls
 
-`Wasm`は関数からほかの関数を呼び出すことができる。
-もちろん関数自身を再帰的に呼び出すことも可能だ。
+In `Wasm`, functions can call other functions. Of course, it is also possible for a function to call itself recursively.
 
-本節では次の関数呼び出しができるように実装をしていく。
-`call_doubler`関数は引数を一つ受け取り、それを`double`関数に渡して2倍にして返すということをしている。
+In this section, we will implement the ability to make the following function calls. The `call_doubler` function takes one argument, passes it to the `double` function, and returns double the value.
 
 ```wat:src/fixtures/func_call.wat
 (module
@@ -417,8 +416,9 @@ test execution::runtime::tests::not_found_export_function ... ok
 )
 ```
 
-### `call`命令のデコード実装
-まず関数呼び出し命令をデコードできるように実装する。
+### Implementation of `call` Instruction Decoding
+
+First, implement the decoding of function call instructions.
 
 src/binary/opcode.rs
 ```diff
@@ -448,7 +448,7 @@ index 1307caa..c9c6584 100644
  }
 ```
 
-関数呼び出し命令はオペランドを持っていて、関数への参照（インデックス）を持っているので、それをデコードする。
+The function call instruction has an operand that holds a reference (index) to the function, so decode that.
 
 src/binary/module.rs
 ```diff
@@ -469,7 +469,7 @@ index 9ba5afc..3a3316c 100644
  }
 ```
 
-続けて、カスタムセクションのデコードをスキップして、テストを追加する。
+Next, skip decoding the custom sections and add tests.
 
 src/binary/section.rs
 ```diff
@@ -567,10 +567,9 @@ index 3a3316c..5bf739d 100644
  }
 ```
 
-カスタムセクションはメタデータ領域のことで、自由に好きなデータを配置できる。
-本書では特に使わないが、今回のWATを使うと`wat`クレートがWATをコンパイルする際にカスタムセクションを追加するようになるため、それをスキップする必要がある。
+Custom sections refer to the metadata area where you can freely place any data. Although not specifically used in this book, when using the `wat` crate with WAT, it adds custom sections during compilation, so it is necessary to skip them.
 
-実装が問題なければ、次のとおりテストが通る。
+If the implementation is correct, the following test will pass.
 
 ```sh
 running 8 tests
@@ -584,8 +583,9 @@ test execution::runtime::tests::not_found_export_function ... ok
 test execution::runtime::tests::execute_i32_add ... ok
 ```
 
-### `call`命令処理の実装
-デコードの処理は実装できたので、次は命令の処理を実装していく。
+### Implementation of `call` Instruction Processing
+
+Now that the decoding process is implemented, proceed to implement the instruction processing.
 
 src/execution/runtime.rs
 ```diff
@@ -633,12 +633,11 @@ index bc2a20b..f65d61e 100644
          Ok(())
 ```
 
-関数呼び出し命令でやることはシンプルで、`Store`からインデックスで指定された`InternalFuncInst`を取得してフレームを作成してコールスタックに`push`するだけ。
+The task for a function call instruction is simple: retrieve the `InternalFuncInst` specified by the index from the `Store`, create a frame, and `push` it onto the call stack.
 
-`InternalFuncInst`を受け取り、フレームをコールスタックに`push`する処理は共通なので`Runtime::push_frame(...)`として切り出して、
-`Runtime::invoke_internal(...)`と呼び出し命令の処理で使えるようにしている。
+Since the process of receiving `InternalFuncInst` and pushing a frame to the call stack is common, it is extracted as `Runtime::push_frame(...)` to be used in `Runtime::invoke_internal(...)` for the call instruction processing.
 
-最後にテストを追加して、実装が問題ないことを確認する。
+Finally, add tests to ensure the implementation is correct.
 
 src/execution/runtime.rs
 ```diff
@@ -680,6 +679,6 @@ test execution::runtime::tests::execute_i32_add ... ok
 test binary::module::tests::decode_simplest_func ... ok
 ```
 
-## まとめ
-本章では関数の呼び出しができるように実装した。
-次章ではインポートした外部関数を実行できるように実装していく。
+## Summary
+
+In this chapter, the implementation of function calls was completed. In the next chapter, we will implement the execution of imported external functions.

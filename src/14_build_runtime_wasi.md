@@ -1,9 +1,9 @@
 ---
-Runtimeの実装 ~ "Hello, World!"出力まで ~
+Implementation of Runtime ~ Up to Outputting "Hello, World!" ~
 ---
 
-本章では`WASI`の`fd_write`関数を実装して、`Hello, World!`を出力できるようにしていく。
-最終的には次のWATを実行できるようになる。
+In this chapter, we will implement the `fd_write` function of `WASI` to be able to output `Hello, World!`.
+Eventually, we will be able to execute the following WAT.
 
 ```WAT:src/fixtures/hello_world.wat
 (module
@@ -32,16 +32,16 @@ Runtimeの実装 ~ "Hello, World!"出力まで ~
 )
 ```
 
-## `WASI`の`fd_write()`の実装
+## Implementation of `WASI`'s `fd_write()`
 
-`WASI`は現在まだバージョン1に到達しておらず、`0.1`と`0.2`がある。
-`0.1`は一般的に`wasi_snapshot_preview1`と呼ばれていて、主にシステムコール関数を定義したものとなっている。
-詳細は[こちら](https://wasi.dev)を参照。
+`WASI` has not yet reached version 1 and has versions `0.1` and `0.2`.
+`0.1` is commonly referred to as `wasi_snapshot_preview1` and mainly defines system call functions.
+For more details, refer to [here](https://wasi.dev).
 
-`wasi_snapshot_preview1`に定義されている`fd_write()`は`Wasm Runtime`のメモリからデータを読み取り、標準出力・標準エラー出力にデータを書き込む関数である。
-なので、この関数を実装すれば`Hello, World!`を出力できる`Wasm Runtime`の完成だ。
+The `fd_write()` defined in `wasi_snapshot_preview1` reads data from the `Wasm Runtime` memory and writes data to standard output or standard error output.
+Therefore, by implementing this function, we can complete the `Wasm Runtime` capable of outputting `Hello, World!`.
 
-改めて冒頭のWATのインポートを見てみよう。
+Let's take a look at the import of the WAT at the beginning again.
 
 ```wat
 (import "wasi_snapshot_preview1" "fd_write"
@@ -49,14 +49,14 @@ Runtimeの実装 ~ "Hello, World!"出力まで ~
 )
 ```
 
-引数と戻り値はそれぞれ、次のようになっている。
+The arguments and return values are as follows:
 
-- 引数1つ目: 書き込み先の`fd`、`1`は標準出力、`2`は標準エラー出力
-- 引数2つ目: メモリの読み取り開始の位置
-- 引数3つ目: メモリの読み取り回数、2つ目の値が4バイトずつ加算される
-- 引数4つ目: 出力に書き込んだバイト数の保存先、メモリのインデックス値
+- 1st argument: File descriptor to write to, `1` for standard output, `2` for standard error output
+- 2nd argument: Starting position for reading memory
+- 3rd argument: Number of times to read memory, the value of the 2nd argument is incremented by 4 bytes each time
+- 4th argument: Location to store the number of bytes written to the output, memory index value
 
-引数の意味がわかったところ、`$hello_wrold`でやっていることについて解説する。
+Now that we understand the meaning of the arguments, let's explain what `$hello_world` is doing.
 
 ```wat
 (func $hello_world (result i32)
@@ -76,21 +76,20 @@ Runtimeの実装 ~ "Hello, World!"出力まで ~
 )
 ```
 
-1. メモリの16バイト目に`0`を書き込む
-   `0`は書き出すメモリデータの先頭
-2. メモリの20バイト目に`14`を書き込む
-   `14`は書き出すメモリデータバイト数
-   つまり`0`から`14`バイト読み取って書き出すということになる
-3. 宣言したローカル変数に`16`の値をセットする
-   `16`はメモリの読み取り開始の位置の値、`fd_write()`はこの値で指定された位置からメモリを読み取る
-4. `fd_write`を呼び出し、`fd 1`に書き出したバイト数をメモリの`24`バイト目に書き込むように指定
+1. Write `0` to the 16th byte of memory
+   `0` is the start of the memory data to be written
+2. Write `14` to the 20th byte of memory
+   `14` is the number of bytes of memory data to be written
+   In other words, it reads from `0` and writes out `14` bytes
+3. Set the value `16` to the declared local variable
+   `16` is the value of the starting position for reading memory, `fd_write()` reads memory from this position
+4. Call `fd_write` and specify to write the number of bytes written to `fd 1` to the 24th byte of memory
 
-ちょっと説明が分かりづらいが、要は`fd`に書き出すメモリデータの範囲の値を配置して、
-`fd_write()`が範囲の値を読み取って、その範囲のデータを書き出すということをやっている。
+The explanation may be a bit confusing, but essentially, it arranges the value range of memory data to be written to `fd`, and `fd_write()` reads the value range and writes out the data within that range.
 
-これでやっていることがわかったと思うので、それを実装にしていく。
+Now that you understand what is being done, let's proceed with the implementation.
 
-まず`src/execution/wasi.rs`を作成して次のように`wasi_snapshot_preview1`を表現した構造体を用意する。
+First, create `src/execution/wasi.rs` and prepare a structure representing `wasi_snapshot_preview1` as follows.
 
 src/execution.rs
 ```diff
@@ -129,10 +128,10 @@ impl WasiSnapshotPreview1 {
 }
 ```
 
-`WasiSnapshotPreview1`はファイルのテーブルを持っていて、デフォルトでは`stdin/stdout/stderr`の3つを持つようにしている。
-`WASI`にはファイルを開く関数`path_open()`があり、その際にファイルテーブルの配列に追加していくことになるので、本書のスコープ外なので実際はしないがそれを見越したデータ構造にしておく。
+`WasiSnapshotPreview1` holds a file table, by default having `stdin/stdout/stderr`.
+`WASI` has a function `path_open()` to open files, and when doing so, it will add to the array of file tables, although this is beyond the scope of this document, we prepare the data structure in anticipation of that.
 
-次に`WasiSnapshotPreview1::invoke(...)`を実装して、`Wasm Runtime`から`WASI`関数を実行できるようにする。
+Next, implement `WasiSnapshotPreview1::invoke(...)` to be able to execute `WASI` functions from the `Wasm Runtime`.
 
 src/execution/wasi.rs
 ```diff
@@ -173,9 +172,9 @@ index a75dc9c..b0da928 100644
  }
 ```
 
-`WasiSnapshotPreview1::invoke(...)`は指定した関数名に応じて`WASI`関数を呼べるようにしていて、今後も`WASI`関数を追加する際は`match`の分岐を増やしていくことになる。
+`WasiSnapshotPreview1::invoke(...)` allows calling `WASI` functions based on the specified function name, and when adding more `WASI` functions in the future, you will need to add branches to the `match` statement.
 
-続けて、メモリからデータを読み取って`fd`に書き出す処理を実装する。
+Continuing, implement the process of reading data from memory and writing to `fd`.
 
 src/execution/wasi.rs
 ```diff
@@ -242,30 +241,30 @@ index b0da928..6283250 100644
 +}
 ```
 
-`WasiSnapshotPreview1::fd_write(...)`でやっていることはちょっと分かりづらいので、バイト列を示しながら解説する。
+The process in `WasiSnapshotPreview1::fd_write(...)` may be a bit unclear, so let's explain it while showing the byte sequence.
 
-まず`WasiSnapshotPreview1::fd_write(...)`が呼ばれる時点のメモリの状態は次のようになる。
+First, let's take a look at the memory state when `WasiSnapshotPreview1::fd_write(...)` is called.
 
 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | ... |
 |---|---|---|---|---|---|---|---|---|---|----|----|----|----|----|----|----|----|----|----|----|-----|
 | H | e | l | l | o | , |   | W | o | r | l  | d  | !  | \n | 0  | 0  | 0  | 0  | 0  | 0  | 14 | ... |
 
-1で`iovs`で指定された位置にある書き出すデータの開始位置を取得する。
-`iovs`は`16`なので値は`0`になっていて、`(i32.store (i32.const 16) (i32.const 0))`で配置した値である。
+First, we retrieve the starting position of the data to be written at the position specified by `iovs`, which is `16`.
+Since `iovs` is `16`, the value is `0`, which was placed using `(i32.store (i32.const 16) (i32.const 0))`.
 
-メモリは4バイトでアライメントされているので`iovs`を+4して、2で書き出すデータの長さを取得する。
-`20`にある`14`は`(i32.store (i32.const 20) (i32.const 14))`で配置した値である。
+Since memory is aligned by 4 bytes, we add +4 to `iovs` to get the length of the data to be written at step 2.
+The `14` at position `20` is the value placed using `(i32.store (i32.const 20) (i32.const 14))`.
 
-これで、書き出すデータ長さがわかったので、3で切り出すメモリデータの範囲（0~14バイト）を計算して、4でその範囲のバイト列を`fd`に書き出す。
-これを`iovs_len`の回数分繰り返し、5で書き出した合計バイト数を`rp`で指定したメモリの番地に配置する。
+Now that we know the length of the data to be written, we calculate the range of memory data to be extracted (0-14 bytes) at step 3 and write that byte sequence to `fd` at step 4.
+This process is repeated for the number of times specified by `iovs_len`, and at step 5, the total number of bytes written is placed at the memory address specified by `rp`.
 
-5が終わった時点で、メモリは次の状態になる。
+After step 5, the memory state will be as follows:
 
 | ... | 14 | 15 | 16 | 17 | 18 | 19 | 20 | ... | 24 | ... |
 |-----|----|----|----|----|----|----|----|-----|----|-----|
 | ... | 0  | 0  | 0  | 0  | 0  | 0  | 14 | ... | 13 | ... |
 
-これで`WasiSnapshotPreview1::fd_write(...)`の実装ができたので、それを呼べるようにしていく。
+With the implementation of `WasiSnapshotPreview1::fd_write(...)`, we can now proceed to call it.
 
 src/execution/runtime.rs
 ```diff
@@ -305,7 +304,7 @@ index 4fb8807..6fba7e7 100644
              .get_mut(&func.module)
 ```
 
-続けて、`Runtime`を生成するときに`WasiSnapshotPreview1`のインスタンスを渡せるようにする
+Next, ensure that when creating a `Runtime`, an instance of `WasiSnapshotPreview1` can be passed.
 
 src/execution/runtime.rs
 ```diff
@@ -335,7 +334,7 @@ index 6fba7e7..573539f 100644
          module_name: impl Into<String>,
 ```
 
-最後に`wat2wasm`で`hello_world.wat`をコンパイルした`hello_world.wasm`を読み取って実行する処理を`main.rs`に追加する。
+Finally, add the process to read and execute the compiled `hello_world.wasm` from `hello_world.wat` using `wat2wasm` to `main.rs`.
 
 src/main.rs
 ```diff
@@ -358,25 +357,25 @@ index e7a11a9..fd8f527 100644
  }
 ```
 
-実装が問題なければ、次のように`Hello, World!`が出力されるはずだ。
+If the implementation is correct, `Hello, World!` should be output as follows:
 
 ```sh
 $ cargo run -q
 Hello, World!
 ```
 
-## まとめ
-これで`Hello, World!`を出力できる小さな`Wasm Runtime`が完成した。
-色々と覚えることは多かったと思うが、やっていることは意外と難しくないのではなかろうか。
+## Summary
+With this, a small `Wasm Runtime` capable of outputting `Hello, World!` has been completed.
+Although there was much to learn, the tasks themselves may not have been as difficult as initially thought.
 
-本書で実装した命令はほんの僅かなのでできることはほとんどないが、`Wasm Runtime`が動く仕組みを実装レベルで理解するには充分である。
-もし、完全な`Wasm Runtime`の実装にチャレンジしたい方はぜひ仕様書を読みつつ実装してみてほしい。
-大変だが、動かせたときはとても楽しいと思う。
+The instructions implemented in this book are minimal, but they are sufficient to understand the mechanism of a functioning `Wasm Runtime` at the implementation level.
+If you are interested in challenging yourself to implement a complete `Wasm Runtime`, I encourage you to read the specifications and give it a try.
+It may be challenging, but the sense of accomplishment when it runs successfully is truly rewarding.
 
-参考までに、version 1の命令とある程度の`WASI`を実装すると次の様なことができる。
+For reference, by implementing version 1 instructions and a certain level of `WASI`, you can achieve the following:
 
 https://zenn.dev/skanehira/articles/2023-09-18-rust-wasm-runtime-containerd
 https://zenn.dev/skanehira/articles/2023-12-02-wasm-risp
 
-最後にこの本を読んでくれたことに感謝を述べたい。
-この本を読んで良かったと思えたら、ぜひSNSなどで拡散してもらえると嬉しい。
+Lastly, I would like to express my gratitude for reading this book.
+If you found it valuable, please consider sharing it on social media platforms.

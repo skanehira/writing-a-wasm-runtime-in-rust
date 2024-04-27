@@ -1,97 +1,96 @@
-# Wasmの概要
+# Overview of Wasm
 
-本章ではWasmの概要について、主に次の内容を解説していく。
+In this chapter, we will mainly explain the following about Wasm:
 
-- Wasm Runtimeの概要
-- Wasmのメリット・デメリット
-- Wasmの利用シーン
+- Overview of Wasm Runtime
+- Pros and Cons of Wasm
+- Use cases of Wasm
 
-## Wasm Runtimeの概要
-前章で書いたとおり、Wasmは仮想命令セットである。
-その仮想命令を読み取って実行するWasm Runtimeはいわば仮想マシンそのものである。
+## Overview of Wasm Runtime
+As mentioned in the previous chapter, Wasm is a virtual instruction set.
+The Wasm Runtime, which reads and executes these virtual instructions, is essentially a virtual machine itself.
 
-仮想マシンといえばJava VMやRubyVMなどがあるが、Wasm Runtimeも同類である。
-JavaやRubyはソースコードをコンパイルしバイトコードを生成して、そのバイトコードを仮想マシンが実行するといった流れだが、Wasmもほぼ同様である。
+When we talk about virtual machines, we can think of Java VM or RubyVM, and Wasm Runtime falls into the same category.
+Java and Ruby compile source code to generate bytecode, which is then executed by the virtual machine. Similarly, Wasm follows a similar process.
 
-ただ、図1で示しているように、WasmはC、Go、Rustといった多数の言語からコンパイルできるのが特徴となっている。
+However, as shown in Figure 1, a notable feature of Wasm is its ability to be compiled from various languages such as C, Go, and Rust.
 
 ![](./images/about_wasm_runtime.png)
-*図1*
+*Figure 1*
 
-本書はいわばJava VMやRubyVMのような仮想マシンを実装していくことになるが、
-Wasm Runtime自体はそれほど複雑ではなく、できることは数値の計算とWasm Runtime自身がもつメモリ操作のみである。
+This book will essentially implement a virtual machine similar to Java VM or RubyVM. 
+The Wasm Runtime itself is not very complex, capable of performing numerical calculations and memory operations that it possesses.
 
-では標準出力などの処理はできないのか？と疑問に感じる人も居るだろう。
-実はリソース（ファイルやネットワークなど）の操作はWasm Specに含まれておらず、[WASI（WebAssembly System Interface）](https://wasi.dev)という仕様に含まれている。
-WASIはPOSIXライクなシステムコール関数の集まりとなっていて、それらの関数を呼ぶことでリソースを操作できるようになる。
+One might wonder if tasks like standard output are possible. In fact, resource operations (such as file or network operations) are not included in the Wasm Spec but are part of the [WebAssembly System Interface (WASI)](https://wasi.dev) specification.
+WASI consists of a collection of POSIX-like system call functions, allowing resource operations by calling these functions.
 
-ちなみに今回は`Hello World`を出力するために、WASIの`fd_write`という関数を実装していく。
+For this instance, we will implement the `fd_write` function of WASI to output `Hello World`.
 
-## Wasmのメリット・デメリット
+## Pros and Cons of Wasm
 
-筆者が考えるWasmのメリット・デメリットは次のとおり。
+The author's perspective on the pros and cons of Wasm are as follows.
 
-### メリット
-- **セキュアな実行**  
-  Wasm RuntimeはWASIを使わない場合は基本的にRuntime外に影響を及ぼすことはない[^1]ので、ある種のサンドボックス環境となっている  
-  たとえば環境変数から機密情報を抜き取る、といったようなことはできないためセキュアである
-- **ポータビリティ**  
-  WasmはOS・CPUに依存せず、Runtimeがあればどこでも実行できる  
-  Google ChromeやFirefox、Microsoft Edgeといった主要なブラウザで実行できる
-  主要のブラウザ以外にも、[Wasmtime](https://wasmtime.dev)や[wazero](https://wazero.io)といったサーバーサイドで実行できるRuntimeもある
-- **言語の多様性**   
-  Wasmは複数の言語からコンパイルできるので各言語の財産を利用できる  
-  また、他のWasmバイナリをimportできるため、言語の壁を超えて各言語の財産を共有できる
+### Pros
+- **Secure Execution**  
+  Without using WASI, Wasm Runtime generally does not have an impact outside the runtime, making it a kind of sandbox environment.  
+  For example, it is secure as it cannot extract confidential information from environment variables.
+- **Portability**  
+  Wasm is independent of the OS and CPU, allowing execution anywhere with a runtime.  
+  It can be executed in major browsers like Google Chrome, Firefox, and Microsoft Edge.  
+  Besides major browsers, there are runtimes like [Wasmtime](https://wasmtime.dev) and [wazero](https://wazero.io) for server-side execution.
+- **Language Diversity**  
+  Wasm can be compiled from multiple languages, enabling the utilization of assets from various languages.  
+  Additionally, it can import other Wasm binaries, facilitating the sharing of language assets across language barriers.
 
-### デメリット
-- **古いブラウザのサポートをしていない**  
-  基本的にないと思うが、古いブラウザではWasmをサポートしていないため、Wasmバイナリを実行できないことがある
-  その場合は[polywasm](https://github.com/evanw/polywasm)というライブラリを使えばWasmを動かせる
-- **発展途上の技術である**  
-  Wasmは比較的に新しい技術で、WASIとともに現在も仕様の拡張が行われている
-  そのためエコシステムもまだ成熟しておらず、Wasmだけで本格的なアプリケーションを構築するのはまだ難しい
-- **パフォーマンスはRuntimeに依存する**  
-  Runtimeの実装によってはパフォーマンスの差異が発生する
-  たとえば、ChromeとWasmtimeでの実行はそもそもRuntimeが異なるため、ベンチマークの比較はその部分を考慮する必要がある
-  Wasmバイナリの実行速度を比較するのであれば同じRuntimeで計測する必要があり、Runtimeの速度を計測する場合は同じWasmバイナリで計測する必要がある
+### Cons
+- **Lack of Support in Older Browsers**  
+  Although rare, older browsers may not support Wasm, leading to the inability to execute Wasm binaries.  
+  In such cases, using a library like [polywasm](https://github.com/evanw/polywasm) can enable running Wasm.
+- **Evolving Technology**  
+  Wasm is a relatively new technology, with ongoing specification extensions alongside WASI.  
+  As a result, the ecosystem is still maturing, making it challenging to build full-fledged applications solely with Wasm.
+- **Performance Depends on Runtime**  
+  Performance differences can arise based on the implementation of the runtime.  
+  For instance, executing in Chrome and Wasmtime involves different runtimes, necessitating consideration of this aspect in benchmark comparisons.  
+  When comparing the execution speed of Wasm binaries, measurements should be done with the same runtime, and when measuring runtime speed, it should be done with the same Wasm binary.
 
-## Wasmの利用シーン
-Wasmが利用されているシーンについて、いくつか例を紹介していく。
+## Use Cases of Wasm
+We will introduce several examples of scenarios where Wasm is being utilized.
 
-### プラグインシステム
-Wasmは複数の言語からコンパイルできることから、プラグイン機構を構築する際にWasmを採用されることがよくある。
-たとえば、[zellij](https://github.com/zellij-org/zellij)というターミナルマルチプレクサではWasmを採用している。詳細は[こちら](https://zellij.dev/news/new-plugin-system/)を参照してほしい。
+### Plugin Systems
+Due to Wasm's ability to be compiled from multiple languages, it is often adopted in building plugin mechanisms.
+For example, the terminal multiplexer called [zellij](https://github.com/zellij-org/zellij) utilizes Wasm. For more details, refer to [this link](https://zellij.dev/news/new-plugin-system/).
 
-他にも[Evnoy Proxy](https://www.envoyproxy.io)というプロキシサーバーではWasmを使って機能拡張できる仕組みも用意されている。
+In addition, the Envoy Proxy server also provides a mechanism for extending functionality using Wasm.
 
-### サーバーレスアプリケーション
-[spin](https://developer.fermyon.com/spin)というフレームワークを使うと、Wasmでサーバレスアプリケーションを構築できる。
-spin以外には[wasmCloud](https://wasmcloud.com)や[Wasmer Edge](https://wasmer.io/products/edge)などがある。
+### Serverless Applications
+By using the spin framework, you can build serverless applications with Wasm.
+In addition to spin, there are other options such as wasmCloud and Wasmer Edge.
 
-### コンテナ
-`Docker`や`Kubernetes`でもLinuxコンテナの代わりにWasmを使うことができる。
-`Docker`や`Kubernetes`がどのようにLinuxコンテナとWasmを動かしているのかについて、図2をもとに概要を説明する。
+### Containers
+In addition to Linux containers in Docker and Kubernetes, you can also use Wasm.
+To explain how Docker and Kubernetes run Linux containers and Wasm, an overview is provided based on Figure 2.
 
 ![](./images/containerd_shim.png)
-*図2*
+*Figure 2*
 
 - `containerd`
-  - コンテナイメージの管理（取得や削除など）やコンテナの操作（作成や開始など）をキックするなど
-  - 高レベルコンテナランタイムとも呼ばれる
+  - Manages container images (such as retrieval and deletion) and operations on containers (such as creation and start)
+  - Also known as a high-level container runtime
 - `runc`
-  - 実際にLinuxコンテナの作成と起動をする
-  - 低レベルコンテナランタイムとも呼ばれる
+  - Actually creates and starts Linux containers
+  - Also known as a low-level container runtime
 - `containerd-shim`
-  - `containerd`と`runc`を繋げてくれる
-  - 実体はただの実行バイナリ
+  - Bridges `containerd` and `runc`
+  - Essentially just an execution binary
 - `containerd-shim-*`
-  - `containerd`と`Wasm Runtime`を繋げてくれる
-  - 実体はただの実行バイナリ
-  - `containerd-shim-wasmtime`や`containerd-shim-wasmedge`といった実行バイナリがある
-  - Rustで`containerd-shim-*`を実装するときは[runwasi](https://github.com/containerd/runwasi)を使う
+  - Bridges `containerd` and `Wasm Runtime`
+  - Essentially just an execution binary
+  - There are execution binaries like `containerd-shim-wasmtime` and `containerd-shim-wasmedge`
+  - When implementing `containerd-shim-*` in Rust, use [runwasi](https://github.com/containerd/runwasi)
 
-## まとめ
-本章はWasm RuntimeやWasmを使ったエコシステムについてざっくりと紹介したので、
-次章では実際にWasmtimeを使ってWasmを実際に使ってみる。
+## Summary
+This chapter provides a brief introduction to the Wasm Runtime and the ecosystem using Wasm.
+In the next chapter, we will actually use Wasm with Wasmtime.
 
-[^1]: Runtimeの実装に脆弱性がないことを前提とする
+[^1]: Assumes that the Runtime implementation is free of vulnerabilities.

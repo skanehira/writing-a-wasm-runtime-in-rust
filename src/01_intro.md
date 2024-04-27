@@ -1,61 +1,62 @@
-# はじめに
+# Introduction {/examples/}
 
-Wasm（WebAssembly）は現代の主要ブラウザで実行できる[仮想命令セット](https://en.wikipedia.org/wiki/Instruction_set_architecture)である。
+Wasm (WebAssembly) is a [virtual instruction set](https://en.wikipedia.org/wiki/Instruction_set_architecture) that can be executed in modern major browsers.
 
-主に次の特徴がある。
+It has the following main features:
 
-- 主要ブラウザで実行できる
-- OS・CPUに依存しない
-- 安全なサンドボックス環境で実行される
-- ネイティブに近いパフォーマンス[^1]
-- 複数の言語（Rust、Go、Cなど）からコンパイルできる
+- Can be executed in major browsers
+- Not dependent on OS or CPU
+- Runs in a secure sandbox environment
+- Provides performance close to native[^1]
+- Can be compiled from multiple languages (Rust, Go, C, etc.)
 
-Runtime（実行環境）があればWasmバイナリを実行できるので、ブラウザに限らずサーバーサイドでも実行できる。
-たとえば、アプリケーションのプラグインシステムにWasmを採用したり、サーバーレスアプリケーション構築でWasmを利用できたりする。
+With a Runtime environment, Wasm binaries can be executed not only in browsers but also on the server-side. For example, Wasm can be adopted in an application's plugin system or utilized in serverless application development.
 
-今後ますます盛り上がりを見せていくであろうWasm、その動作原理について興味がある人も多いと思う。
-本書ではWasmの紹介と利用シーンについて解説したあと、Rustを使って`Hello World`を出力できる小さなRuntimeをゼロから実装していくことで、動作原理を理解することを目指していく。
+The interest in Wasm, which is expected to continue to grow, is likely shared by many who are curious about its operation principles. In this document, after introducing Wasm and explaining its use cases, we aim to understand the operational principles by implementing a small Runtime from scratch using Rust to output `Hello World`.
 
-小さなRuntimeといっても次のようなことを理解する必要があるので、すこし大変かもしれないが、1つずつ解説していくので焦らずに一緒にやっていこう。
+Even though understanding a small Runtime may require some effort, we will explain each aspect step by step, so let's proceed together without rushing.
 
-- Wasmバイナリのデータ構造の理解
-- 使用するWasmの命令セットの理解
-- 命令処理の仕組みの理解
-- Wasmバイナリのデコードの実装
-- 命令の処理の実装
+Things you need to understand for the small Runtime include:
 
-ちなみに、実装するRuntimeはバージョン1の[仕様書](https://www.w3.org/TR/wasm-core-1/)に準拠している。
-仕様書は非常に読解が難しいが、興味ある人はぜひ本書が解説した内容をベースに続きを実装してみてほしい。
+- Understanding the data structure of Wasm binaries
+- Understanding the instruction set of Wasm used
+- Understanding the mechanism of instruction processing
+- Implementing Wasm binary decoding
+- Implementing instruction processing
 
-## 対象の読者
+By the way, the Runtime to be implemented adheres to the specifications of version 1 ([specification](https://www.w3.org/TR/wasm-core-1/)). The specification may be challenging to read, but for those interested, we encourage you to continue implementing based on the explanations provided in this document.
 
-本書の対象者は次のとおり。
+## Target Audience {/examples/}
 
-- Rustの基礎をわかっていて、読み書きができる人
-- Wasmに興味がある人
-- Wasmが実行される仕組みを知りたい人
+The target audience of this document is as follows:
 
-## 用語
+- Those who understand the basics of Rust and can read and write in it
+- Those interested in Wasm
+- Those who want to understand how Wasm is executed
 
-本書で使用する用語は次のとおり。
+## Glossary {/examples/}
+
+The terms used in this document are as follows:
 
 - Wasm
-  WebAssemblyの略  
-  エコシステム全体のことを指す
-- Wasmバイナリ
-  `*.wasm`ファイルを指す  
-  中身はバイトコード
+  Abbreviation for WebAssembly
+  Refers to the entire ecosystem
+- Wasm binary
+  Refers to `*.wasm` files
+  Contains bytecode
 - Wasm Runtime
-  Wasmを実行できる環境、インタプリタとも呼ぶ  
-  本書は`*.wasm`ファイルを読み取り、実行できるRuntimeを実装していく
+  Environment that can execute Wasm, also known as an interpreter
+  This document will implement a Runtime that can read and execute `*.wasm` files
 - Wasm Spec
-  Wasmの仕様のこと  
-  本書では[バージョン1](https://www.w3.org/TR/wasm-core-1/)の仕様に準拠している
+  Refers to the specifications of Wasm
+  This document adheres to the specifications of [version 1](https://www.w3.org/TR/wasm-core-1/)
 
-## 本書について
-本書の原稿はこちらの[リポジトリ](https://github.com/skanehira/writing-a-wasm-runtime-in-rust)にあるので、分かりづらい部分や変な説明があったらぜひPRを出してほしい。
+## About This Document {/examples/}
 
-## 筆者について
+The manuscript of this document is available in this [repository](https://github.com/skanehira/writing-a-wasm-runtime-in-rust), so if you find any confusing parts or strange explanations, please submit a pull request.
+
+## About the Author {/examples/}
+
 [skanehira](https://github.com/skanehira)
 
-[^1]: 厳密にはRuntimeの実装に依存する
+[^1]: Strictly depends on the implementation of the Runtime

@@ -1,18 +1,18 @@
 ---
-Runtimeの実装 ~ 命令の追加実装 ~
+Implementation of Runtime ~ Additional Instruction Implementation ~
 ---
 
-本章ではこれから実装する機能で次の命令が必要になってくるので、先にそれらを実装する。
+In this chapter, we need the following instructions for the features we are about to implement, so let's implement them first.
 
-| 命令        | 概要                                                 |
-|-------------|------------------------------------------------------|
-| `local.set` | スタックから値を1つ`pop`してローカル変数に配置する |
-| `i32.const` | オペランドの値をスタックに`push`する                 |
-| `i32.store` | スタックから値を`pop`してメモリに書き込む            |
+| Instruction  | Description                                           |
+|--------------|-------------------------------------------------------|
+| `local.set`  | `pop` a value from the stack and place it in a local variable |
+| `i32.const`  | `push` the value of the operand onto the stack         |
+| `i32.store`  | `pop` a value from the stack and write it to memory    |
 
-### `local.set`の実装
+### Implementation of `local.set`
 
-`local.set`命令ではオペランドを持っていて、ローカル変数のどの場所に値を配置するかを指定できるようになっている。
+The `local.set` instruction has an operand that allows specifying where to place the value in a local variable.
 
 src/binary/opcode.rs
 ```diff
@@ -87,11 +87,11 @@ index 3c492bc..c52de7b 100644
                          bail!("not found any value in the stack");
 ```
 
-やっていることはシンプルで、指定された`frame.locals`のインデックスに`pop`した値を配置する。
+The operation is simple, placing the `pop` value at the specified index of `frame.locals`.
 
-### `i32.const`の実装
+### Implementation of `i32.const`
 
-`i32.const`はオペランドに値を持っていて、この値をスタックに`push`する。
+`i32.const` has an operand with a value that is pushed onto the stack.
 
 src/binary/opcode.rs
 ```diff
@@ -169,7 +169,7 @@ index c52de7b..9044e25 100644
                          bail!("not found any value in the stack");
 ```
 
-`local.set`と組み合わせたテストを追加して実装が問題ないことを確認する。
+Add tests combining with `local.set` to ensure the implementation is correct.
 
 ```wat:src/fixtures/i32_const.wat
 (module
@@ -222,9 +222,9 @@ index 9044e25..1b18d77 100644
  }
 ```
 
-### `i32.store`の実装
+### Implementation of `i32.store`
 
-`i32.store`はスタックから値を`pop`して、指定したメモリアドレスに値を書き込む命令となっている。
+`i32.store` is an instruction that `pop` a value from the stack and writes it to the specified memory address.
 
 src/binary/opcode.rs
 ```diff
@@ -294,10 +294,10 @@ index bcb8288..b5b7417 100644
          Ok(())
 ```
 
-`i32.store`のオペランドはオフセットとアライメントの値になっていて、この`アドレス + オフセット`が実際に値を書き込む場所になる。
-アライメントはメモリ境界チェックのために必要だが本書のスコープ外なので、デコードはするが特に使わない。
+The operand of `i32.store` consists of an offset and alignment value, where `address + offset` becomes the actual location to write the value.
+Alignment is necessary for memory boundary checks, but it is out of the scope of this document, so we decode it but do not use it specifically.
 
-これで命令のデコードができるようになったので、テストを追加して実装が問題ないことを確認する。
+With the decoding of the instruction in place, add tests to ensure the implementation is correct.
 
 src/execution/runtime.rs
 ```diff
@@ -365,7 +365,7 @@ test execution::runtime::tests::not_found_imported_func ... ok
 test execution::store::test::init_memory ... ok
 ```
 
-続けて`i32.store`の命令を実装していく。
+Next, proceed with the implementation of the `i32.store` instruction.
 
 ```diff
 diff --git a/src/execution/value.rs b/src/execution/value.rs
@@ -426,14 +426,14 @@ index b5b7417..3584fdf 100644
                      let (Some(right), Some(left)) = (self.stack.pop(), self.stack.pop()) else {
 ```
 
-命令の処理では次のことをやっている。
+The instruction processing involves the following.
 
-1. スタックからメモリに書き込む値とアドレスを取得
-2. 1のアドレス + オフセットで書き込み先のインデックスを取得
-3. メモリへの書き込み範囲を算出する
-4. 値をリトルエンディアンのバイト列に変換して、2と3で計算した範囲にデータをコピー
+1. Get the value and address to write from the stack to memory.
+2. Obtain the index of the write destination by adding the address from step 1 with the offset.
+3. Calculate the range for writing to memory.
+4. Convert the value to a little-endian byte array and copy the data to the calculated range from steps 2 and 3.
 
-最後にテストを追加して実装に問題ないことを確認する。
+Finally, add tests to ensure the implementation is correct.
 
 ```wat:src/fixtures/i32_store.wat
 (module
@@ -447,8 +447,7 @@ index b5b7417..3584fdf 100644
 )
 ```
 
-`i32_store.wat`ではアドレスが`0`で値が`42`、オフセットは`0`なので最終的にメモリの`0`番地に対して`42`を書き込むことになる。
-そのためテストでは`0`番地が`42`になっていることを確認する。
+In `i32_store.wat`, the address is `0`, the value is `42`, and the offset is `0`, so ultimately `42` will be written to memory address `0`. Therefore, the test will confirm that memory address `0` contains `42`.
 
 src/execution/runtime.rs
 ```diff
@@ -496,7 +495,6 @@ test execution::runtime::tests::not_found_imported_func ... ok
 test execution::store::test::init_memory ... ok
 ```
 
-## まとめ
+## Summary
 
-本章では追加で必要な命令を実装した。
-次章は`Wasm Runtime`でメモリを扱えるように、メモリ初期化の機能を実装していく。
+In this chapter, additional instructions were implemented. In the next chapter, we will implement memory initialization functionality in the `Wasm Runtime` to handle memory.

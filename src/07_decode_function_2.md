@@ -1,16 +1,16 @@
 ---
-関数のデコード実装 ~ 命令のデコードまで ~
+Implementation of Function Decoding ~ Up to Instruction Decoding ~
 ---
 
-前章では何もしないもっとも小さな関数のデコードを実装したが、以下のTODOを残していた。
+In the previous chapter, we implemented the decoding of the smallest function that does nothing, but left the following TODOs:
 
-- `Type Section`の引数と戻り値のデコード
-- `Code Section`のローカル変数と命令のデコード
+- Decode arguments and return values of the `Type Section`.
+- Decode local variables and instructions of the `Code Section`.
 
-本章ではそれらの処理を実装をしていく。
+In this chapter, we will proceed with the implementation of these processes.
 
-## 関数の引数のデコード
-引数のデコードを実装していくので、引数を持つ関数を次のように定義する。
+## Decoding Function Arguments
+We will implement the decoding of arguments, so define a function with arguments as follows:
 
 ```wat
 (module
@@ -19,7 +19,7 @@
 )
 ```
 
-`Type Section`は次のようになっている。
+The `Type Section` looks like this:
 
 ```
 ; section "Type" (1)
@@ -34,22 +34,22 @@
 000000f: 00      ; num results
 ```
 
-これを次の手順でデコードしていく。
+Decode this following these steps:
 
-1. 関数シグネチャの個数である`num types`を読み取る
-    - この値の回数だけ2~6を繰り返す
-2. `func`の値は読み捨てる
-    - 関数シグネチャの種類を表す値だが、`Wasm spec`では`0x60`固定
-    - 本書では特に使わない
-3. 引数の個数である`num params`を読み取る
-4. `num params`の回数だけ、引数の型情報をデコードする
-    - `0x7F`の場合は`i32`、`0x7E`の場合は`i64`なので、それぞれ`ValueType`に変換
-5. 戻り値の個数である`num results`を読み取る
-6. `num results`の回数だけ、戻り値の型情報をデコードする
-    - `0x7F`の場合は`i32`、`0x7E`の場合は`i64`なので、それぞれ`ValueType`に変換
+1. Read the number of function signatures, `num types`
+    - Repeat steps 2 to 6 this number of times
+2. Discard the value of `func`
+    - Represents the type of function signature, fixed as `0x60` in the `Wasm spec`
+    - Not used in this document
+3. Read the number of arguments, `num params`
+4. Decode the type information of arguments this number of times
+    - Convert to `ValueType` for `0x7F` as `i32` and `0x7E` as `i64`
+5. Read the number of return values, `num results`
+6. Decode the type information of return values this number of times
+    - Convert to `ValueType` for `0x7F` as `i32` and `0x7E` as `i64`
 
-上記の手順を実装すると次のとおり。
-コメントの番号がそれぞれ上記の手順である。
+The implementation of the above steps is as follows.
+The numbers in the comments correspond to the steps mentioned above.
 
 /src/binary/module.rs
 ```diff
@@ -104,12 +104,12 @@
  }
 ```
 
-`many0()`は受け取った関数を使って、入力が終わるまでパースし続けて、入力の残りとパース結果を`Vec`で返す関数である。
-これを使って、「`u8`を読み取って`ValueType`に変換」する関数である`decode_value_type()`を繰り返している。
-このように、`many0()`を使うことで`for`を使ってデコードする必要がなくなり、実装がシンプルになる。
+`many0()` is a function that parses input using the provided function until the input ends, returning the remaining input and parsing results as a `Vec`.
+Here, we repeatedly apply the function `decode_value_type()` that reads `u8` and converts it to `ValueType`.
+By using `many0()`, we eliminate the need for a `for` loop for decoding, simplifying the implementation.
 
-実装はできたので、続けてテストを実装していくが、現時点では引数のテストのみとする。
-戻り値をテストするには命令のデコード処理を実装する必要があるので、別途実装する。
+With the implementation completed, we will proceed to implement tests, focusing only on testing arguments at this point.
+To test return values, we need to implement instruction decoding separately.
 
 /src/binary/module.rs
 ```diff
@@ -153,7 +153,7 @@
  }
 ```
 
-問題なければ次のとおり、テストが通る。
+If everything is correct, the tests should pass as follows.
 
 ```sh
 running 3 tests
@@ -164,9 +164,9 @@ test binary::module::tests::decode_simplest_func ... ok
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-## ローカル変数のデコード
-次に、ローカル変数のデコードを実装していく。
-使用するWATコードは次のとおり。
+## Decoding Local Variables
+Next, we will implement the decoding of local variables.
+The WAT code to be used is as follows:
 
 ```wat
 (module
@@ -177,7 +177,7 @@ test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 )
 ```
 
-`Code Section`のバイナリ構造は次のようになっている。
+The binary structure of the `Code Section` is as follows:
 
 ```
 ; section "Code" (10)
@@ -194,22 +194,23 @@ test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 000001b: 0b         ; end
 ```
 
-これを次の手順でデコードしていく。
+Decode this following these steps:
 
-1. 関数の個数である`num functions`を読み取る
-    - この値の回数だけ2~5を繰り返す
-2. `func body size`を読み取る
-3. 2で取得した値のバイト列を切り出す
-    - ローカル変数と命令のデコード処理の入力として使用する
-4. 3で取得したバイト列を使ってローカル変数の情報をデコードする
-    1. ローカル変数の個数である`local decl count`を読み取る
-    2. `local decl count`の回数だけ4-3 ~ 4-4の処理を繰り返す
-    3. 型の個数である`local type count`を読み取る
-    4. `local type count`の回数だけ値を`ValueType`に変換する
-5. 残りのバイト列を命令にデコードする
+1. Read the number of functions, `num functions`
+    - Repeat steps 2 to 5 this number of times
+2. Read `func body size`
+3. Extract the byte sequence obtained in step 2
+    - Used as input for decoding local variables and instructions
+4. Decode information of local variables using the byte sequence obtained in step 3
+    1. Read the number of local variables, `local decl count`
+    2. Repeat steps 4-3 to 4-4 this number of times
+    3. Read the number of types, `local type count`
+    4. Convert values to `ValueType` this number of times
 
-5の命令デコードはひとまず次節で実装するが、流れは上記のとおり。
-この手順で実装すると次のとおりになる。
+Decode the remaining byte sequence into instructions.
+
+The decoding of instructions will be implemented in the next section, but the flow is as described above.
+The implementation following these steps is as follows.
 
 src/binary/module.rs
 ```diff
@@ -272,7 +273,7 @@ src/binary/module.rs
      use crate::binary::{
 ```
 
-実装はできたので、続けてテストを実装していく。
+With the implementation completed, we will proceed to implement tests.
 
 src/binary/module.rs
 ```diff
@@ -320,7 +321,7 @@ src/binary/module.rs
  }
 ```
 
-テストデータも用意する。
+Prepare test data as well.
 
 src/fixtures/func_local.wat
 ```wat
@@ -332,7 +333,7 @@ src/fixtures/func_local.wat
 )
 ```
 
-問題なければ次のとおり、テストは通る。
+If there are no issues, the test will pass.
 
 ```sh
 running 4 tests
@@ -344,21 +345,21 @@ test binary::module::tests::decode_func_local ... ok
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-## 命令のデコード
-Wasmの命令は基本的に、オペコードとオペランドの2つから構成されている。
-オペコードは命令の識別番号で、その命令がどんなことを行うかを示す部分である。
-オペランドはその命令の対象となるものを示す部分である。
+## Instruction Decoding
+In Wasm, instructions are basically composed of two parts: opcode and operand.
+The opcode is the identification number of the instruction, indicating what the instruction will do.
+The operand indicates the target of the instruction.
 
-たとえば`i32.const`という命令はオペランドの値をスタックにpushするという操作で、
-`(i32.const 1)`の場合は`1`、`(i32.const 2)`は`2`をスタックにpushするという意味になる。
+For example, the instruction `i32.const` performs the operation of pushing the operand value onto the stack.
+In the case of `(i32.const 1)`, it means pushing `1` onto the stack, and `(i32.const 2)` means pushing `2` onto the stack.
 
-なお、オペランドが存在しない命令もある。
-たとえば、`i32.add`はスタックから値を2つ`pop`して加算した結果をスタックに`push`するが、この命令にはオペランドはない。
+There are also instructions that do not have operands.
+For example, `i32.add` pops two values from the stack, adds them, and pushes the result back onto the stack, but this instruction does not have an operand.
 
-このように、オペコードごとにどんな操作を行うかはWasm Specの[Index of Instructions](https://www.w3.org/TR/wasm-core-1/#a7-index-of-instructions)で見ることができる。
-Indexを見るとかなりの命令数があるが、本書では数個の命令だけ実装する。
+For each opcode, you can see what operation it performs in the [Index of Instructions](https://www.w3.org/TR/wasm-core-1/#a7-index-of-instructions) in the Wasm Spec.
+Although there are quite a number of instructions in the Index, only a few instructions will be implemented in this document.
 
-デコードの話に戻るが、 本節では次のWATをデコードできるように実装していく。
+Returning to the decoding discussion, in this section, we will implement decoding for the following WAT.
 
 ```wat
 (module
@@ -370,15 +371,15 @@ Indexを見るとかなりの命令数があるが、本書では数個の命令
 )
 ```
 
-これは引数を2つ受け取って加算した結果を返す関数である。
+This is a function that takes two arguments, adds them, and returns the result.
 
-`local.get`は引数を取得してスタックに`push`する命令で、オペランドは引数のインデックスとなる。
-例えば1つ目の引数を取得したい場合は`0`、2つ目は`1`と言った感じ。
+`local.get` is an instruction that retrieves an argument and pushes it onto the stack, with the operand being the index of the argument.
+For example, to retrieve the first argument, you would use `0`, and for the second argument, you would use `1`.
 
-`i32.add`は先程解説したとおり、スタックから値を2つ`pop`して加算する。
-結果、2つの引数を加算した値がスタックに積まれ、関数の呼び出し元に戻った際にスタックから値を`pop`して戻り値を取得できる。
+`i32.add`, as explained earlier, pops two values from the stack and adds them.
+As a result, the sum of the two arguments is pushed onto the stack, and when the function returns to its caller, the return value can be obtained by popping the value from the stack.
 
-`Code Section`のバイナリ構造は次のとおり。
+The binary structure of the `Code Section` is as follows.
 
 ```
 ; section "Code" (10)
@@ -396,17 +397,17 @@ Indexを見るとかなりの命令数があるが、本書では数個の命令
 000001f: 0b                                        ; end
 ```
 
-処理の流れは前の節で解説したので、命令のデコードの部分のみの手順を示す。
+Since the processing flow was explained in the previous section, only the steps for decoding instructions will be shown here.
 
-5. 残りのバイト列を命令にデコードする
-    1. 1バイト読み取り、オペコードに変換
-    2. オペコードの種類に応じて、オペランドを読み取る
-        1. `local.get`の場合は更に4バイト読み取って、`u32`に変換してからオペコードと合わせて命令に変換
-        2. `i32.add`と`end`の場合は、そのまま命令に変換
+5. Decode the remaining byte sequence into instructions
+    1. Read 1 byte and convert it to an opcode
+    2. Depending on the type of opcode, read the operand
+        1. For `local.get`, read an additional 4 bytes, convert to `u32`, and combine with the opcode to convert to an instruction
+        2. For `i32.add` and `end`, convert directly to an instruction
 
-この手順を実装していく。
+Let's implement these steps.
 
-まずオペコードを定義するファイル`src/binary/opcode.rs`を作成して、オペコードを定義する。
+First, create a file to define opcodes in `src/binary/opcode.rs`.
 
 src/binary/opcode.rs
 ```rust
@@ -429,7 +430,7 @@ src/binary.rs
  pub mod types;
 ```
 
-続けて、命令の定義を追加する。
+Next, add the definitions for instructions.
 
 src/binary/instruction.rs
 ```diff
@@ -487,7 +488,7 @@ src/binary/module.rs
      use crate::binary::{
 ```
 
-続けて、テストを実装していく。
+Then, proceed with implementing the tests.
 
 src/binary/module.rs
 ```diff
@@ -525,7 +526,7 @@ src/binary/module.rs
  }
 ```
 
-テストデータも用意する。
+Prepare test data as well.
 
 /src/fixtures/func_add.wat
 ```wat
@@ -538,7 +539,7 @@ src/binary/module.rs
 )
 ```
 
-問題なければ次のとおり、テストは通る。
+If there are no issues, the test will pass.
 
 ```sh
 running 5 tests
@@ -551,6 +552,6 @@ test binary::module::tests::decode_func_local ... ok
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-## まとめ
-本章では、関数の引数と戻り値、そしてローカル変数と命令のデコード実装について解説した。
-最低限の動く関数をデコードできるようになったので、次は関数の実行の仕組みについて解説していく。
+## Summary
+In this chapter, we explained the implementation of function arguments, return values, local variables, and instruction decoding.
+Now that we can decode a basic functioning function, the next step is to explain the mechanism of function execution.

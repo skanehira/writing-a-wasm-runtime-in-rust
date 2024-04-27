@@ -1,4 +1,4 @@
-# Implementation of Function Decoding ~ Up to Instruction Decoding ~
+# Implementation instruction decoding
 
 In the previous chapter, we implemented the decoding of the smallest function that does nothing, but left the following TODOs:
 

@@ -1,4 +1,4 @@
-# Mechanism of Function Execution
+# How function execution works
 
 Executing a function means processing the instructions the function holds in a loop.
 In this chapter, we will explain how the Wasm Runtime processes functions.

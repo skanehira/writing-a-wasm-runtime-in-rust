@@ -1,4 +1,4 @@
-# Structure of Wasm Binary
+# Wasm binary structure
 
 When the Wasm Runtime executes a Wasm binary, there are two main steps: decoding the Wasm binary and processing instructions.
 To decode the binary, it is necessary to understand the structure of the binary, so this chapter will explain that structure.

@@ -1,4 +1,4 @@
-# Extra Edition ~ Until the Fibonacci Function Works ~
+# Extra edition implementation fibonacci execution
 
 In this chapter, we will add additional implementations to make the Fibonacci function executable as an extra edition.
 For those who find the output of `Hello, World!` a bit unsatisfying, this will be a perfect dessert.

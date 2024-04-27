@@ -1,4 +1,4 @@
-# Implementation of Runtime ~ up to External Function Execution ~
+# Implementation external function execution
 
 In this chapter, we will extend the implementation from the previous chapter to include the functionality of executing external functions.
 Ultimately, by registering closures in the `Wasm Runtime`, we will be able to execute external functions.

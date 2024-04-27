@@ -1,4 +1,4 @@
-# Implementation of Runtime ~ Additional Instruction Implementation ~
+# Implementation additional instructions
 
 In this chapter, we need the following instructions for the features we are about to implement, so let's implement them first.
 

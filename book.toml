@@ -4,3 +4,7 @@ language = "en"
 multilingual = false
 src = "src"
 title = "Writing A Wasm Runtime In Rust"
+
+[output.html]
+git-repository-url = "https://github.com/skanehira/writing-a-wasm-runtime-in-rust"
+git-repository-icon = "fa-github"

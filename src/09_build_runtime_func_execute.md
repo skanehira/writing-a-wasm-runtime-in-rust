@@ -252,11 +252,11 @@ use anyhow::Result;
 
 #[derive(Default)]
 pub struct Frame {
-    pub pc: isize,               // プログラムカウンタ
-    pub sp: usize,               // スタックポインタ
-    pub insts: Vec<Instruction>, // 命令列
-    pub arity: usize,            // 戻り値の数
-    pub locals: Vec<Value>,      // ローカル変数
+    pub pc: isize,               // Program counter
+    pub sp: usize,               // Stack pointer
+    pub insts: Vec<Instruction>, // Instructions
+    pub arity: usize,            // Number of return values
+    pub locals: Vec<Value>,      // Local variables
 }
 
 #[derive(Default)]
@@ -555,8 +555,6 @@ In `Runtime::call(...)`, the following steps are performed:
 3. Pass the `InternalFuncInst` obtained in step 1 to `Runtime::invoke_internal(...)` for execution and return the result.
 
 With this, a `Wasm Runtime` capable of executing addition functions has been created. Finally, write tests to ensure it functions correctly. 
-
-{/*examples*/}
 
 src/execution/runtime.rs
 ```diff

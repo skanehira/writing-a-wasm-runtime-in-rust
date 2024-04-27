@@ -169,7 +169,8 @@ index c52de7b..9044e25 100644
 
 Add tests combining with `local.set` to ensure the implementation is correct.
 
-```wat:src/fixtures/i32_const.wat
+src/fixtures/i32_const.wat
+```wat
 (module
   (func $i32_const (result i32)
     (i32.const 42)
@@ -178,7 +179,8 @@ Add tests combining with `local.set` to ensure the implementation is correct.
 )
 ```
 
-```wat:src/fixtures/local_set.wat
+src/fixtures/local_set.wat
+```wat
 (module
   (func $local_set (result i32)
     (local $x i32)
@@ -286,7 +288,7 @@ index bcb8288..b5b7417 100644
                          }
                      }
                  }
-+                _ => todo!(), // コンパイルエラーを回避するため命令処理は一旦TODO
++                _ => todo!(), // Instruction processing is set to TODO to avoid compilation errors
              }
          }
          Ok(())

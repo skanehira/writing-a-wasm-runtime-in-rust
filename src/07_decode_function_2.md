@@ -260,7 +260,7 @@ src/binary/module.rs
 +        input = rest;
 +    }
 +
-+    // TODO: 命令のデコード
++    // TODO: Decoding instructions
 +    body.code = vec![Instruction::End];
 +
 +    Ok((&[], body))
@@ -454,7 +454,7 @@ src/binary/module.rs
          input = rest;
      }
  
--    // TODO: 命令のデコード
+-    // TODO: Decoding instructions
 -    body.code = vec![Instruction::End];
 +    let mut remaining = input;
 +

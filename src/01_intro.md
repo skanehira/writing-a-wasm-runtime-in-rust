@@ -26,7 +26,7 @@ Things you need to understand for the small Runtime include:
 
 By the way, the Runtime to be implemented adheres to the specifications of version 1 ([specification](https://www.w3.org/TR/wasm-core-1/)). The specification may be challenging to read, but for those interested, we encourage you to continue implementing based on the explanations provided in this document.
 
-## Target Audience {/examples/}
+## Target Audience
 
 The target audience of this document is as follows:
 
@@ -34,7 +34,7 @@ The target audience of this document is as follows:
 - Those interested in Wasm
 - Those who want to understand how Wasm is executed
 
-## Glossary {/examples/}
+## Glossary
 
 The terms used in this document are as follows:
 
@@ -51,11 +51,11 @@ The terms used in this document are as follows:
   Refers to the specifications of Wasm
   This document adheres to the specifications of [version 1](https://www.w3.org/TR/wasm-core-1/)
 
-## About This Document {/examples/}
+## About This Document
 
 The manuscript of this document is available in this [repository](https://github.com/skanehira/writing-a-wasm-runtime-in-rust), so if you find any confusing parts or strange explanations, please submit a pull request.
 
-## About the Author {/examples/}
+## About the Author
 
 [skanehira](https://github.com/skanehira)
 

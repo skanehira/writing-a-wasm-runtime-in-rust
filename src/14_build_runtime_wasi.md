@@ -3,7 +3,8 @@
 In this chapter, we will implement the `fd_write` function of `WASI` to be able to output `Hello, World!`.
 Eventually, we will be able to execute the following WAT.
 
-```WAT:src/fixtures/hello_world.wat
+src/fixtures/hello_world.wat
+```wat
 (module
   (import "wasi_snapshot_preview1" "fd_write"
     (func $fd_write (param i32 i32 i32 i32) (result i32))

@@ -59,7 +59,8 @@ A function signature is uniquely determined by the following combination:
 For example, functions `$a` and `$b` in List 1 have differences in argument order and presence of return values, so they have different signatures, but `$a` and `$c` have the same signature.
 Signatures essentially define the input and output of a function, independent of the function's content, so `$a` and `$c` will reference the same signature information.
 
-```wat:List 1
+List 1
+```
 (module
   (func $a (param i32 i64))
   (func $b (param i64 i32) (result i32 i64)
@@ -75,7 +76,8 @@ The detailed usage of signature information will be explained in the chapter on 
 
 List 2 represents the binary structure.
 
-```:List 2
+List 2
+```
 ; section "Type" (1)
 0000008: 01       ; section code
 0000009: 0d       ; section size
@@ -117,7 +119,8 @@ The remaining part of the section defines function signatures. Each function sig
 
 In List 3, `func type 0` contains the signature information of `(func $a (param i32 i64))` and `(func $c (param i32 i64))`, while `func type 1` contains the signature information of `(func $b (param i64 i32) (result i32 i64))`.
 
-```:List3
+List3
+```
 ; func type 0
 000000b: 60    ; func         ┐                              
 000000c: 02    ; num params   │ (func $a (param i32 i64)) 
@@ -149,7 +152,8 @@ The `Code Section` primarily stores the instruction information of functions.
 
 List 4 represents the binary structure of the `Code Section`.
 
-```:List4
+List4
+```
 ; section "Code" (10)
 000001d: 0a           ; section code
 000001e: 0e           ; section size
@@ -197,7 +201,8 @@ The `Function Section` holds information that links function bodies (`Code Secti
 
 List 5 represents the binary structure.
 
-```:List5
+List5
+```
 ; section "Function" (3)
 0000017: 03              ; section code
 0000018: 04              ; section size
@@ -225,7 +230,8 @@ Memory can be extended in page units, with 1 page being 64KiB as specified in th
 Memory is formatted as `(memory $initial $max)` as shown in List 6, where `2` represents the initial memory page count, and `3` represents the maximum page count.
 `max` is optional, and if not specified, there is no upper limit.
 
-```:List6
+List6
+```
 (module
   (memory 2 3)
 )
@@ -233,7 +239,8 @@ Memory is formatted as `(memory $initial $max)` as shown in List 6, where `2` re
 
 The binary structure is represented as shown in List 7.
 
-```:List7
+List7
+```
 ; section "Memory" (5)
 0000008: 05             ; section code
 0000009: 04             ; section size
@@ -254,7 +261,8 @@ The `Data Section` is the area where data to be placed after memory allocation i
 
 List 8 is an example defining the string `Hello, World!\n` in memory.
 
-```:リスト8
+List 8
+```
 (module
   (memory 1)
   (data 0 (i32.const 0) "Hello, World!\n")
@@ -271,7 +279,8 @@ In this example, the string `Hello, World!\n` is placed in the 0th byte of the 0
 
 The binary structure is as shown in List 9.
 
-```:リスト9
+List 9
+```
 ; section "Data" (11)
 000000d: 0b                                   ; section code
 000000e: 14                                   ; section size
@@ -312,7 +321,8 @@ On the `Runtime` side, only exported functions can be called, so if, for example
 
 List 10 is an example of exporting the function `$dummy` that the module itself has as `dummy`.
 
-```:リスト10
+List 10
+```
 (module
   (func $dummy)
   (export "dummy" (func $dummy))
@@ -323,7 +333,8 @@ The export format is `(export $name ($type $index))`. `$name` is the name to be 
 
 The binary structure is as shown in List 11.
 
-```:リスト11
+List 11
+```
 ; section "Export" (7)
 0000012: 07                   ; section code
 0000013: 09                   ; section size
@@ -350,7 +361,8 @@ In this case, we are implementing WASI, and the actual implementation of WASI fu
 
 List 12 is an example of importing a function named `add` from a module called `adder`.
 
-```:List 12
+List 12
+```
 (module
   (import "adder" "add" (func (param i32 i32) (result i32)))
 )
@@ -362,7 +374,8 @@ The import format is `(import $module $name $type)`.
 
 The binary structure looks like List 13.
 
-```:List 13
+List 13
+```
 ; section "Type" (1)
 0000008: 01                ; section code
 0000009: 07                ; section size

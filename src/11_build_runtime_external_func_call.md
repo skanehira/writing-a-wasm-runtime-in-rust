@@ -22,7 +22,8 @@ As explained in the chapter on [Wasm Binary Structure](https://zenn.dev/skanehir
 By the end of this section, you will be able to decode the following WAT.
 Although it is similar to processing the `Export Section`, you should be able to understand it smoothly.
 
-```wat:src/fixtures/import.wat
+src/fixtures/import.wat
+```wat
 (module
   (func $add (import "env" "add") (param i32) (result i32))
   (func (export "call_add") (param i32) (result i32)

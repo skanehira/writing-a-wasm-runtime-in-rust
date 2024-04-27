@@ -18,10 +18,10 @@ In Wasm Runtime, instructions are represented as an array, so the program counte
 Representing this in pseudocode would look like the following.
 
 ```rust
-let instructions = vec![...];      // 命令列
-let mut stack: Vec<i32> = vec![];  // スタック
-let mut locals: Vec<i32> = vec![]; // ローカル変数
-let mut pc: usize = 0;             // プログラムカウンタ
+let instructions = vec![...];      // Instruction sequence
+let mut stack: Vec<i32> = vec![];  // Stack
+let mut locals: Vec<i32> = vec![]; // Local variables
+let mut pc: usize = 0;             // Program counter
 
 loop {
     if let Some(instruction) = instructions.get(pc) else {

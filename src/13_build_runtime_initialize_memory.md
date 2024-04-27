@@ -139,7 +139,7 @@ index 5666a39..efadc19 100644
  };
  use anyhow::{bail, Result};
  
-+pub const PAGE_SIZE: u32 = 65536; // 64Ki
++pub const PAGE_SIZE: u32 = 65536; // 64KiB
 +
  #[derive(Clone)]
  pub struct Func {
@@ -451,7 +451,8 @@ The instruction processing involves the following.
 
 Finally, add tests to ensure the implementation is correct.
 
-```wat:src/fixtures/i32_store.wat
+src/fixtures/i32_store.wat
+```wat
 (module
   (memory 1)
   (func $i32_store

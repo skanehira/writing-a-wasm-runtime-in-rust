@@ -107,11 +107,11 @@ src/binary/module.rs
 +
 +    #[test]
 +    fn decode_simplest_module() -> Result<()> {
-+        // プリアンブルしか存在しないwasmバイナリを生成
++        // Generate wasm binary with only preamble present
 +        let wasm = wat::parse_str("(module)")?;
-+        // バイナリをデコードしてModule構造体を生成
++        // Decode binary and generate Module structure
 +        let module = Module::new(&wasm)?;
-+        // 生成したModule構造体が想定通りになっているかを比較
++        // Compare whether the generated Module structure is as expected
 +        assert_eq!(module, Module::default());
 +        Ok(())
 +    }

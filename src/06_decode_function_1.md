@@ -110,11 +110,11 @@ src/binary/module.rs
  }
  
 +fn decode_section_header(input: &[u8]) -> IResult<&[u8], (SectionCode, u32)> {
-+    let (input, (code, size)) = pair(le_u8, leb128_u32)(input)?; // ①
++    let (input, (code, size)) = pair(le_u8, leb128_u32)(input)?; // 1
 +    Ok((
 +        input,
 +        (
-+            SectionCode::from_u8(code).expect("unexpected section code"), // ②
++            SectionCode::from_u8(code).expect("unexpected section code"), // 2
 +            size,
 +        ),
 +    ))
@@ -125,7 +125,7 @@ src/binary/module.rs
      use crate::binary::module::Module;
 ```
 
-① `pair()` returns a new parser based on two parsers. The reason for using `pair()` is that the formats of `section code` and `section size` are fixed, so by parsing each of them together, we can process them in a single function call.
+1 `pair()` returns a new parser based on two parsers. The reason for using `pair()` is that the formats of `section code` and `section size` are fixed, so by parsing each of them together, we can process them in a single function call.
 
 If `pair()` is not used, the implementation would look like this:
 
@@ -143,7 +143,7 @@ Note that in the `Wasm spec`, all numbers are required to be encoded with LEB128
 
 </div>
 
-② `SectionCode::from_u8()` is a function implemented with the `num_derive::FromPrimitive` macro. It is used to convert the read 1-byte number to a `SectionCode`. Without using this, a manual solution like the following would be necessary:
+2 `SectionCode::from_u8()` is a function implemented with the `num_derive::FromPrimitive` macro. It is used to convert the read 1-byte number to a `SectionCode`. Without using this, a manual solution like the following would be necessary:
 
 ```rust
 impl From<u8> for SectionCode {
@@ -374,7 +374,7 @@ src/binary/module.rs
 +fn decode_type_section(_input: &[u8]) -> IResult<&[u8], Vec<FuncType>> {
 +    let func_types = vec![FuncType::default()];
 +
-+    // TODO: 引数と戻り値のデコード
++    // TODO: Decoding arguments and return values
 +
 +    Ok((&[], func_types))
 +}
@@ -478,16 +478,16 @@ Function information consists of two parts:
 In Rust, this is represented as follows:
 
 ```rust
-// 関数の定義
+// function definition
 pub struct Function {
     pub locals: Vec<FunctionLocal>,
     pub code: Vec<Instruction>,
 }
 
-// ローカル変数の個数と型情報の定義
+// Define the number of local variables and type information
 pub struct FunctionLocal {
-    pub type_count: u32,       // ローカル変数の個数
-    pub value_type: ValueType, // 変数の型情報
+    pub type_count: u32,       // Number of local variables
+    pub value_type: ValueType, // Variable type information
 }
 
 // 命令の定義
@@ -613,7 +613,7 @@ src/binary/module.rs
  }
  
 +fn decode_code_section(_input: &[u8]) -> IResult<&[u8], Vec<Function>> {
-+    // TODO: ローカル変数と命令のデコード
++    // TODO: Decoding local variables and instructions
 +    let functions = vec![Function {
 +        locals: vec![],
 +        code: vec![Instruction::End],

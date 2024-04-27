@@ -216,7 +216,7 @@ Wasmバイナリは先頭に8バイトのプリアンブル、それに続いて
 
 少し分かりづらいので、関連性を図1にすると次のようになる。
 
-![](/images/relation_type_func_body.png)
+![](./images/relation_type_func_body.png)
 
 *図1*
 
@@ -307,7 +307,7 @@ Wasmバイナリは先頭に8バイトのプリアンブル、それに続いて
 
 図2はリスト9の`segment`の構造を表したもの。
 
-![](/images/data_section.png)
+![](./images/data_section.png)
 
 *図2*
 

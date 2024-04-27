@@ -15,7 +15,7 @@ JavaやRubyはソースコードをコンパイルしバイトコードを生成
 
 ただ、図1で示しているように、WasmはC、Go、Rustといった多数の言語からコンパイルできるのが特徴となっている。
 
-![](/images/about_wasm_runtime.png)
+![](./images/about_wasm_runtime.png)
 *図1*
 
 本書はいわばJava VMやRubyVMのような仮想マシンを実装していくことになるが、
@@ -72,7 +72,7 @@ spin以外には[wasmCloud](https://wasmcloud.com)や[Wasmer Edge](https://wasme
 `Docker`や`Kubernetes`でもLinuxコンテナの代わりにWasmを使うことができる。
 `Docker`や`Kubernetes`がどのようにLinuxコンテナとWasmを動かしているのかについて、図2をもとに概要を説明する。
 
-![](/images/containerd_shim.png)
+![](./images/containerd_shim.png)
 *図2*
 
 - `containerd`

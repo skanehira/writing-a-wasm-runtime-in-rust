@@ -74,7 +74,7 @@ pub struct Frame {
 コールスタックとフレーム、命令実行の関係性を図に示すと次のとおりである。
 プログラムカウンタと命令列は命令フェッチ時に使用され、それ以外の情報は命令を処理する時に使われる。
 
-![](/images/about_execution.drawio.png)
+![](./images/about_execution.drawio.png)
 
 ## スタックポインタ
 

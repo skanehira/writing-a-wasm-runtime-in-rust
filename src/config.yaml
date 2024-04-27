@@ -1,0 +1,22 @@
+RustでWasm Runtimeを実装する
+summary: |
+  Rustで"Hello World"を出力できる小さなWasm Runtimeをゼロから実装して、WasmとWASIの動作原理を理解する本です。
+topics: ["wasm", "rust"] # トピック（5つまで）
+published: true # falseだと下書き
+price: 0 # 有料の場合200〜5000
+chapters:
+  - 01_intro
+  - 02_about_wasm
+  - 03_intro_wasm
+  - 04_wasm_binary_structure
+  - 05_how_decode_wasm_binary
+  - 06_decode_function_1
+  - 07_decode_function_2
+  - 08_how_function_execute
+  - 09_build_runtime_func_execute
+  - 10_build_runtime_func_call
+  - 11_build_runtime_external_func_call
+  - 12_build_runtime_additional_instruction
+  - 13_build_runtime_initialize_memory
+  - 14_build_runtime_wasi
+  - 15_extra_execute_fibonacci

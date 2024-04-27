@@ -1,0 +1,6 @@
+[book]
+authors = ["skanehira"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Writing A Wasm Runtime In Rust"

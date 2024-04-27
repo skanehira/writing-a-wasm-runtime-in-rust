@@ -1,6 +1,4 @@
----
-Implementation of Runtime ~ Additional Instruction Implementation ~
----
+# Implementation of Runtime ~ Additional Instruction Implementation ~
 
 In this chapter, we need the following instructions for the features we are about to implement, so let's implement them first.
 

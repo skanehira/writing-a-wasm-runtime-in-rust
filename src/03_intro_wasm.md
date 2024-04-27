@@ -1,6 +1,4 @@
----
-Introduction to Wasm
----
+# Introduction to Wasm
 
 This chapter will use a language that can be compiled into Wasm binary called WAT (WebAssembly Text Format) to experience running Wasm in practice.
 

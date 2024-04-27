@@ -1,6 +1,4 @@
----
-Implementation of Runtime ~ Up to Memory Initialization ~
----
+# Implementation of Runtime ~ Up to Memory Initialization ~
 
 In this chapter, we will implement the functionality to initialize the memory held by the `Wasm Runtime` and place data in it.
 Ultimately, we will be able to initialize the memory of the `Wasm Runtime` with the following WAT.

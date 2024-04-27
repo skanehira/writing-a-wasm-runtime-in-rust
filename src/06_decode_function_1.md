@@ -1,6 +1,4 @@
----
-Decoding Function Implementation ~ Up to Decoding Sections ~
----
+# Decoding Function Implementation ~ Up to Decoding Sections ~
 
 In the previous chapter, we explained the basic implementation methods for decoding. In this chapter, we will implement decoding functions.
 

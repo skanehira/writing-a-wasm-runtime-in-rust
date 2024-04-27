@@ -1,6 +1,4 @@
----
-Implementation of Runtime ~ up to function call ~
----
+# Implementation of Runtime ~ up to function call ~
 
 In this chapter, we will extend the implementation from the previous chapter to implement the following features.
 

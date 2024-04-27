@@ -1,4 +1,4 @@
-# Introduction {/examples/}
+# Introduction
 
 Wasm (WebAssembly) is a [virtual instruction set](https://en.wikipedia.org/wiki/Instruction_set_architecture) that can be executed in modern major browsers.
 

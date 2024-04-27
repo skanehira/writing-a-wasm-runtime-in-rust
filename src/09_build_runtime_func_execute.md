@@ -1,6 +1,4 @@
----
-Implementation of Runtime ~ Up to Function Execution ~
----
+# Implementation of Runtime ~ Up to Function Execution ~
 
 In this chapter, we will implement a Runtime to execute the following WAT.
 Once implemented, a `Wasm Runtime` capable of simple addition will be created.

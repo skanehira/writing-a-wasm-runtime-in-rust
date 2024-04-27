@@ -1,6 +1,4 @@
----
-Basic implementation method of binary decoding
----
+# Basic implementation method of binary decoding
 
 In this chapter, we will use a parser combinator called [nom](https://crates.io/crates/nom) to decode a Wasm binary that only contains a preamble, explaining the basic implementation of binary decoding.
 

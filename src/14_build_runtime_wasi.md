@@ -1,6 +1,4 @@
----
-Implementation of Runtime ~ Up to Outputting "Hello, World!" ~
----
+# Implementation of Runtime ~ Up to Outputting "Hello, World!" ~
 
 In this chapter, we will implement the `fd_write` function of `WASI` to be able to output `Hello, World!`.
 Eventually, we will be able to execute the following WAT.

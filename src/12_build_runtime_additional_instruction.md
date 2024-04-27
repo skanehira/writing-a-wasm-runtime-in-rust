@@ -2,11 +2,11 @@
 
 In this chapter, we need the following instructions for the features we are about to implement, so let's implement them first.
 
-| Instruction  | Description                                           |
-|--------------|-------------------------------------------------------|
-| `local.set`  | `pop` a value from the stack and place it in a local variable |
-| `i32.const`  | `push` the value of the operand onto the stack         |
-| `i32.store`  | `pop` a value from the stack and write it to memory    |
+| Instruction | Description                                                   |
+|-------------|---------------------------------------------------------------|
+| `local.set` | `pop` a value from the stack and place it in a local variable |
+| `i32.const` | `push` the value of the operand onto the stack                |
+| `i32.store` | `pop` a value from the stack and write it to memory           |
 
 ### Implementation of `local.set`
 
@@ -220,7 +220,7 @@ index 9044e25..1b18d77 100644
  }
 ```
 
-### Implementation of `i32.store`
+### Implementation of `i32.store` decoding
 
 `i32.store` is an instruction that `pop` a value from the stack and writes it to the specified memory address.
 
@@ -363,135 +363,7 @@ test execution::runtime::tests::not_found_imported_func ... ok
 test execution::store::test::init_memory ... ok
 ```
 
-Next, proceed with the implementation of the `i32.store` instruction.
-
-```diff
-diff --git a/src/execution/value.rs b/src/execution/value.rs
-index b24fd25..21d364d 100644
---- a/src/execution/value.rs
-+++ b/src/execution/value.rs
-@@ -10,6 +10,15 @@ impl From<i32> for Value {
-     }
- }
- 
-+impl From<Value> for i32 {
-+    fn from(value: Value) -> Self {
-+        match value {
-+            Value::I32(value) => value,
-+            _ => panic!("type mismatch"),
-+        }
-+    }
-+}
-+
- impl From<i64> for Value {
-     fn from(value: i64) -> Self {
-         Value::I64(value)
-```
-
-```diff
-diff --git a/src/execution/runtime.rs b/src/execution/runtime.rs
-index b5b7417..3584fdf 100644
---- a/src/execution/runtime.rs
-+++ b/src/execution/runtime.rs
-@@ -1,3 +1,5 @@
-+use std::mem::size_of;
-+
- use super::{
-     import::Import,
-     store::{ExternalFuncInst, FuncInst, InternalFuncInst, Store},
-@@ -161,6 +163,22 @@ impl Runtime {
-                     let idx = *idx as usize;
-                     frame.locals[idx] = value;
-                 }
-+                Instruction::I32Store { align: _, offset } => {
-+                    let (Some(value), Some(addr)) = (self.stack.pop(), self.stack.pop()) else { // 1
-+                        bail!("not found any value in the stack");
-+                    };
-+                    let addr = Into::<i32>::into(addr) as usize;
-+                    let offset = (*offset) as usize;
-+                    let at = addr + offset; // 2
-+                    let end = at + size_of::<i32>(); // 3
-+                    let memory = self
-+                        .store
-+                        .memories
-+                        .get_mut(0)
-+                        .ok_or(anyhow!("not found memory"))?;
-+                    let value: i32 = value.into();
-+                    memory.data[at..end].copy_from_slice(&value.to_le_bytes()); // 4
-+                }
-                 Instruction::I32Const(value) => self.stack.push(Value::I32(*value)),
-                 Instruction::I32Add => {
-                     let (Some(right), Some(left)) = (self.stack.pop(), self.stack.pop()) else {
-```
-
-The instruction processing involves the following.
-
-1. Get the value and address to write from the stack to memory.
-2. Obtain the index of the write destination by adding the address from step 1 with the offset.
-3. Calculate the range for writing to memory.
-4. Convert the value to a little-endian byte array and copy the data to the calculated range from steps 2 and 3.
-
-Finally, add tests to ensure the implementation is correct.
-
-```wat:src/fixtures/i32_store.wat
-(module
-  (memory 1)
-  (func $i32_store
-    (i32.const 0)
-    (i32.const 42)
-    (i32.store)
-  )
-  (export "i32_store" (func $i32_store))
-)
-```
-
-In `i32_store.wat`, the address is `0`, the value is `42`, and the offset is `0`, so ultimately `42` will be written to memory address `0`. Therefore, the test will confirm that memory address `0` contains `42`.
-
-src/execution/runtime.rs
-```diff
-diff --git a/src/execution/runtime.rs b/src/execution/runtime.rs
-index 19b766c..79aa5e5 100644
---- a/src/execution/runtime.rs
-+++ b/src/execution/runtime.rs
-@@ -313,4 +313,14 @@ mod tests {
-         assert_eq!(result, Some(Value::I32(42)));
-         Ok(())
-     }
-+
-+    #[test]
-+    fn i32_store() -> Result<()> {
-+        let wasm = wat::parse_file("src/fixtures/i32_store.wat")?;
-+        let mut runtime = Runtime::instantiate(wasm)?;
-+        runtime.call("i32_store", vec![])?;
-+        let memory = &runtime.store.memories[0].data;
-+        assert_eq!(memory[0], 42);
-+        Ok(())
-+    }
- }
-```
-
-```sh
-running 19 tests
-test binary::module::tests::decode_func_param ... ok
-test binary::module::tests::decode_simplest_func ... ok
-test binary::module::tests::decode_simplest_module ... ok
-test binary::module::tests::decode_i32_store ... ok
-test binary::module::tests::decode_import ... ok
-test binary::module::tests::decode_func_call ... ok
-test binary::module::tests::decode_func_local ... ok
-test binary::module::tests::decode_func_add ... ok
-test binary::module::tests::decode_memory ... ok
-test binary::module::tests::decode_data ... ok
-test execution::runtime::tests::execute_i32_add ... ok
-test execution::runtime::tests::i32_const ... ok
-test execution::runtime::tests::call_imported_func ... ok
-test execution::runtime::tests::func_call ... ok
-test execution::runtime::tests::i32_store ... ok
-test execution::runtime::tests::local_set ... ok
-test execution::runtime::tests::not_found_export_function ... ok
-test execution::runtime::tests::not_found_imported_func ... ok
-test execution::store::test::init_memory ... ok
-```
+Memory is required to implement the `i32.store` instruction, so we will implement the instruction along with memory initialization in the next chapter.
 
 ## Summary
 

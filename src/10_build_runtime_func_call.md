@@ -186,7 +186,7 @@ index d14704f..41c9a89 100644
 
 Also, update the tests.
 
-src/
+src/binary/module.rs
 ```diff
 diff --git a/src/binary/module.rs b/src/binary/module.rs
 index 41c9a89..9ba5afc 100644
@@ -298,7 +298,6 @@ index d103fa0..3f6ecb2 100644
  }
 ```
 
-```markdown
 Continuing, modify to receive the function name in `Runtime::call(...)` and update to retrieve the index from `ModuleInst` to the function.
 Also, update the tests to pass the function name.
 

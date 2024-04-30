@@ -14,7 +14,7 @@ assert_eq!(result, Some(Value::I32(want)));
 ```
 
 ## Implementation of `Import Section` Decoding
-As explained in the chapter on [Wasm Binary Structure](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure#import-section), the `Wasm Runtime` has an import feature.
+As explained in the chapter on [Wasm Binary Structure](https://skanehira.github.io/writing-a-wasm-runtime-in-rust/04_wasm_binary_structure.html#import-section), the `Wasm Runtime` has an import feature.
 
 > The `Import Section` defines the area where information for importing external entities such as memory and functions located outside the module is specified.
 > External entities refer to memory and functions provided by other modules or the Runtime.

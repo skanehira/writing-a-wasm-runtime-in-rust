@@ -93,7 +93,7 @@ The numbers in the comments correspond to the steps mentioned above.
 +        let (_, types) = many0(decode_value_type)(types)?; // 6
 +        func.results = types;
  
--    // TODO: 引数と戻り値のデコード
+-    // TODO: Decoding arguments and return values
 +        func_types.push(func);
 +        input = rest;
 +    }
@@ -225,7 +225,7 @@ src/binary/module.rs
  }
  
 -fn decode_code_section(_input: &[u8]) -> IResult<&[u8], Vec<Function>> {
--    // TODO: ローカル変数と命令のデコード
+-    // TODO: Decoding arguments and return values
 -    let functions = vec![Function {
 -        locals: vec![],
 -        code: vec![Instruction::End],

@@ -18,7 +18,7 @@ We will also implement the `i32.store` instruction left in the previous chapter.
 First, we will work on decoding the `Memory Section`.
 The `Memory Section` contains information on how much memory to allocate during `Wasm Runtime` initialization, so by decoding this section, we will be able to allocate memory.
 
-For detailed binary structure, refer to the chapter on [Wasm Binary Structure](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure#memory-section).
+For detailed binary structure, refer to the chapter on [Wasm Binary Structure](https://skanehira.github.io/writing-a-wasm-runtime-in-rust/04_wasm_binary_structure.html#memory-section).
 
 First, define the `Memory` that holds memory information.
 
@@ -278,7 +278,7 @@ test execution::runtime::tests::call_imported_func ... ok
 ## Implementation of `Data Section` Decoding
 
 The `Data Section` defines the area where data to be placed in memory after memory allocation by the `Runtime` is specified. We will proceed with implementing the decoding to place this data in memory.
-For detailed binary structure, refer to the [Wasm Binary Structure](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure#data-section).
+For detailed binary structure, refer to the [Wasm Binary Structure](https://skanehira.github.io/writing-a-wasm-runtime-in-rust/04_wasm_binary_structure.html#data-section).
 
 First, prepare the following structure.
 

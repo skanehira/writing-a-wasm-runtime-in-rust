@@ -38,7 +38,7 @@ index ce14757..99678c4 100644
 ```
 
 Since the decoding of the `Export Section` has not been implemented, the test currently fails, so let's implement it.
-Regarding the binary structure, it has already been explained in the chapter [Wasm Binary Structure](https://zenn.dev/skanehira/books/writing-wasm-runtime-in-rust/viewer/04_wasm_binary_structure), so please refer to it.
+Regarding the binary structure, it has already been explained in the chapter [Wasm Binary Structure](https://skanehira.github.io/writing-a-wasm-runtime-in-rust/04_wasm_binary_structure.html#export-section), so please refer to it.
 
 First, define the type representing exports.
 

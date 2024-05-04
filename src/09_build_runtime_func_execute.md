@@ -70,7 +70,7 @@ src/execution.rs
 pub mod value;
 ```
 
-src/execution/lib.rs
+src/lib.rs
 ```diff
 diff --git a/src/lib.rs b/src/lib.rs
 index 96eab66..ec63376 100644

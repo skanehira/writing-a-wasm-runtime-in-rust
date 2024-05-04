@@ -63,7 +63,7 @@ index 40f20fd..8426948 100644
          Opcode::Call => {
 ```
 
-src/binary/module.rs
+src/execution/runtime.rs
 ```diff
 diff --git a/src/execution/runtime.rs b/src/execution/runtime.rs
 index 3c492bc..c52de7b 100644

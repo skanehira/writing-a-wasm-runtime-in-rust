@@ -745,18 +745,19 @@ index 8d9ff62..f0d90f8 100644
  
              match inst {
 +                Instruction::If(block) => {
-+                    let cond = self
++                    let cond = self // 1
 +                        .stack
 +                        .pop()
 +                        .ok_or(anyhow!("not found value in the stack"))?;
 +
-+                    if cond == Value::I32(0) { // 1
-+                        frame.pc = get_end_address(&frame.insts, frame.pc as usize)? as isize; // 2
++                    let next_pc = get_end_address(&frame.insts, frame.pc as usize)?; // 2
++                    if cond == Value::I32(0) { // 3
++                        frame.pc = next_pc as isize
 +                    }
 +
 +                    let label = Label {
 +                        kind: LabelKind::If,
-+                        pc: frame.pc as usize,
++                        pc: next_pc,
 +                        sp: self.stack.len(),
 +                        arity: block.block_type.result_count(),
 +                    };
@@ -801,9 +802,10 @@ index 8d9ff62..f0d90f8 100644
 In the `if` command, we are doing the following:
 
 1. Pop a value from the stack for evaluation.
-2. If it is `false`, calculate the end `pc` of the `if` command.
+2. Calculate `pc` at the end of `if`
+3. If it is `false`, the next instruction will be `end`, so update `frame.pc` to `pc` calculated in step 2.
     - If it is `true`, there is no need to adjust the `pc`; we simply push the label and continue processing the next command.
-3. Since `if` commands can be nested, we control this with `depth`.
+4. `if` may be nested, so in that case, control with `depth`
 
 It is worth noting that the end of an `if` command is similar to the end of a function, marked by the `end` command. This is also the case for `block` and `loop` commands.
 
@@ -821,7 +823,7 @@ index f0d90f8..23ee5dc 100644
                      };
                      frame.labels.push(label);
                  }
-+                Instruction::Return => match frame.labels.pop() {
++                Instruction::End => match frame.labels.pop() {
 +                    Some(label) => {
 +                        let Label { pc, sp, arity, .. } = label;
 +                        frame.pc = pc as isize;
@@ -836,7 +838,7 @@ index f0d90f8..23ee5dc 100644
 +                        stack_unwind(&mut self.stack, sp, arity)?;
 +                    }
 +                },
-                 Instruction::End => {
+                 Instruction::Return => {
                      let Some(frame) = self.call_stack.pop() else {
                          bail!("not found frame");
 @@ -260,7 +275,6 @@ impl Runtime {

@@ -138,15 +138,6 @@ diff --git a/src/binary/module.rs b/src/binary/module.rs
 index d14704f..41c9a89 100644
 --- a/src/binary/module.rs
 +++ b/src/binary/module.rs
-@@ -2,7 +2,7 @@ use super::{
-     instruction::Instruction,
-     opcode::Opcode,
-     section::{Function, SectionCode},
--    types::{FuncType, FunctionLocal, ValueType},
-+    types::{Export, ExportDesc, FuncType, FunctionLocal, ValueType},
- };
- use nom::{
-     bytes::complete::{tag, take},
 @@ -21,6 +21,7 @@ pub struct Module {
      pub type_section: Option<Vec<FuncType>>,
      pub function_section: Option<Vec<u32>>,

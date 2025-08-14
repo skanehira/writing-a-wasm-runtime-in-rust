@@ -310,8 +310,89 @@ Each field is as follows:
 
 Next, implement the decoding process.
 
-```diff
 src/binary/module.rs
+```diff
+diff --git a/src/binary/module.rs b/src/binary/module.rs
+index 3e59d35..46db8dc 100644
+--- a/src/binary/module.rs
++++ b/src/binary/module.rs
+@@ -3,7 +3,8 @@ use super::{
+     opcode::Opcode,
+     section::{Function, SectionCode},
+     types::{
+-        Export, ExportDesc, FuncType, FunctionLocal, Import, ImportDesc, Limits, Memory, ValueType,
++        Data, Export, ExportDesc, FuncType, FunctionLocal, Import, ImportDesc, Limits, Memory,
++        ValueType,
+     },
+ };
+ use nom::{
+@@ -21,6 +22,7 @@ pub struct Module {
+     pub magic: String,
+     pub version: u32,
+     pub memory_section: Option<Vec<Memory>>,
++    pub data_section: Option<Vec<Data>>,
+     pub type_section: Option<Vec<FuncType>>,
+     pub function_section: Option<Vec<u32>>,
+     pub code_section: Option<Vec<Function>>,
+@@ -34,6 +36,7 @@ impl Default for Module {
+             magic: "\0asm".to_string(),
+             version: 1,
+             memory_section: None,
++            data_section: None,
+             type_section: None,
+             function_section: None,
+             code_section: None,
+@@ -75,6 +78,10 @@ impl Module {
+                             let (_, memory) = decode_memory_section(section_contents)?;
+                             module.memory_section = Some(vec![memory]);
+                         }
++                        SectionCode::Data => {
++                            let (_, data) = deocde_data_section(section_contents)?;
++                            module.data_section = Some(data);
++                        }
+                         SectionCode::Type => {
+                             let (_, types) = decode_type_section(section_contents)?;
+                             module.type_section = Some(types);
+@@ -95,7 +102,6 @@ impl Module {
+                             let (_, imports) = decode_import_section(section_contents)?;
+                             module.import_section = Some(imports);
+                         }
+-                        _ => todo!(),
+                     };
+ 
+                     remaining = rest;
+@@ -286,6 +292,31 @@ fn decode_limits(input: &[u8]) -> IResult<&[u8], Limits> {
+     Ok((input, Limits { min, max }))
+ }
+ 
++fn decode_expr(input: &[u8]) -> IResult<&[u8], u32> {
++    let (input, _) = leb128_u32(input)?;
++    let (input, offset) = leb128_u32(input)?;
++    let (input, _) = leb128_u32(input)?;
++    Ok((input, offset))
++}
++
++fn deocde_data_section(input: &[u8]) -> IResult<&[u8], Vec<Data>> {
++    let (mut input, count) = leb128_u32(input)?; // 1
++    let mut data = vec![];
++    for _ in 0..count {
++        let (rest, memory_index) = leb128_u32(input)?;
++        let (rest, offset) = decode_expr(rest)?; // 2
++        let (rest, size) = leb128_u32(rest)?; // 3
++        let (rest, init) = take(size)(rest)?; // 4
++        data.push(Data {
++            memory_index,
++            offset,
++            init: init.into(),
++        });
++        input = rest;
++    }
++    Ok((input, data))
++}
++
+ fn decode_name(input: &[u8]) -> IResult<&[u8], String> {
+     let (input, size) = leb128_u32(input)?;
+     let (input, name) = take(size)(input)?;
 ```
 
 In the decoding process, the following steps are performed:
@@ -325,8 +406,70 @@ In the decoding process, the following steps are performed:
 
 Next, add tests to ensure the implementation is correct.
 
-```diff
 src/binary/module.rs
+```diff
+diff --git a/src/binary/module.rs b/src/binary/module.rs
+index c0c1aff..40f20fd 100644
+--- a/src/binary/module.rs
++++ b/src/binary/module.rs
+@@ -333,7 +333,7 @@ mod tests {
+         module::Module,
+         section::Function,
+         types::{
+-            Export, ExportDesc, FuncType, FunctionLocal, Import, ImportDesc, Limits, Memory,
++            Data, Export, ExportDesc, FuncType, FunctionLocal, Import, ImportDesc, Limits, Memory,
+             ValueType,
+         },
+     };
+@@ -547,4 +547,48 @@ mod tests {
+         }
+         Ok(())
+     }
++
++    #[test]
++    fn decode_data() -> Result<()> {
++        let tests = vec![
++            (
++                "(module (memory 1) (data (i32.const 0) \"hello\"))",
++                vec![Data {
++                    memory_index: 0,
++                    offset: 0,
++                    init: "hello".as_bytes().to_vec(),
++                }],
++            ),
++            (
++                "(module (memory 1) (data (i32.const 0) \"hello\") (data (i32.const 5) \"world\"))",
++                vec![
++                    Data {
++                        memory_index: 0,
++                        offset: 0,
++                        init: b"hello".into(),
++                    },
++                    Data {
++                        memory_index: 0,
++                        offset: 5,
++                        init: b"world".into(),
++                    },
++                ],
++            ),
++        ];
++
++        for (wasm, data) in tests {
++            let module = Module::new(&wat::parse_str(wasm)?)?;
++            assert_eq!(
++                module,
++                Module {
++                    memory_section: Some(vec![Memory {
++                        limits: Limits { min: 1, max: None }
++                    }]),
++                    data_section: Some(data),
++                    ..Default::default()
++                }
++            );
++        }
++        Ok(())
++    }
+ }
 ```
 
 ```sh
@@ -349,15 +492,78 @@ test execution::runtime::tests::not_found_imported_func ... ok
 
 Now that we can retrieve memory data, we will proceed to place the data on the `Runtime` memory.
 
-```diff
 src/execution/store.rs
+```diff
+diff --git a/src/execution/store.rs b/src/execution/store.rs
+index efadc19..cad96ca 100644
+--- a/src/execution/store.rs
++++ b/src/execution/store.rs
+@@ -5,7 +5,7 @@ use crate::binary::{
+     module::Module,
+     types::{ExportDesc, FuncType, ImportDesc, ValueType},
+ };
+-use anyhow::{bail, Result};
++use anyhow::{anyhow, bail, Result};
+ 
+ pub const PAGE_SIZE: u32 = 65536; // 64Ki
+ 
+@@ -146,6 +146,22 @@ impl Store {
+             }
+         }
+ 
++        if let Some(ref sections) = module.data_section {
++            for data in sections {
++                let memory = memories
++                    .get_mut(data.memory_index as usize)
++                    .ok_or(anyhow!("not found memory"))?;
++
++                let offset = data.offset as usize;
++                let init = &data.init;
++
++                if offset + init.len() > memory.data.len() {
++                    bail!("data is too large to fit in memory");
++                }
++                memory.data[offset..offset + init.len()].copy_from_slice(init);
++            }
++        }
++
+         Ok(Self {
+             funcs,
+             memories,
 ```
 
 The process is simple, copying the data from the `Data Section` to the specified location in memory.
 Finally, add tests to ensure the implementation is correct.
 
-```diff
 src/execution/store.rs
+```diff
+diff --git a/src/execution/store.rs b/src/execution/store.rs
+index cad96ca..1bb1192 100644
+--- a/src/execution/store.rs
++++ b/src/execution/store.rs
+@@ -169,3 +169,32 @@ impl Store {
+         })
+     }
+ }
++
++#[cfg(test)]
++mod test {
++    use super::Store;
++    use crate::binary::module::Module;
++    use anyhow::Result;
++
++    #[test]
++    fn init_memory() -> Result<()> {
++        let wasm = wat::parse_file("src/fixtures/memory.wat")?;
++        let module = Module::new(&wasm)?;
++        let store = Store::new(module)?;
++        assert_eq!(store.memories.len(), 1);
++        assert_eq!(store.memories[0].data.len(), 65536);
++        assert_eq!(&store.memories[0].data[0..5], b"hello");
++        assert_eq!(&store.memories[0].data[5..10], b"world");
++        Ok(())
++    }
++}
 ```
 
 ```sh
